@@ -1,3 +1,4 @@
+
 generator client {
   provider = "prisma-client-js"
   output   = "../../node_modules/.prisma/private"
@@ -6,4 +7,37 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("PRIVATE_DB_URL")  // Comes from your .env file
+}
+
+import "../../config/auth-log-events/auth-log-events.enum.prisma"
+import "../../config/device-type-events/device-type.enum.prisma"
+import "../../config/performed-by/performed-by.enum.prisma"
+
+model DeviceRateLimit {
+  id             Int          @id @default(autoincrement())
+  deviceID       String       @unique
+  attempts       Int          @default(1)
+  lastAttemptAt  DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}
+
+model AuthLogSchema {
+  id             Int            @id @default(autoincrement())
+  userID         String         @index
+  eventType      AuthLogEvent
+  deviceID       String
+  deviceName     String?
+  deviceType     DeviceType?
+  performedBy    PerformedBy    @default(CUSTOMER)
+  timestamp      DateTime       @default(now())
+  adminAction    AdminAction?   @relation(fields:[id], references: [id])
+}
+
+model AdminAction {
+  id            Int             @id 
+  authLog       AuthLogSchema   @relation(fields: [id], references: [id])
+  targetUserID  String?
+  reason        String?
+  filter        AuthLogEvent[]  @db.VarChar(255)[]
 }
