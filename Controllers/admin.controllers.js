@@ -1,6 +1,8 @@
 // This file will include the controller logic for all powers of Admin
 
 // Extract the Required Modules
+const prisma = require('../clients/public.prisma');   // ← user table lives in public DB
+const prismaPrivate = require('../clients/private.prisma'); // ← for AuthLog rewrite later
 const { throwInvalidResourceError, throwInternalServerError, errorMessage, throwAccessDeniedError } = require("../configs/error-handler.configs");
 const { logWithTime } = require("../utils/time-stamps.utils");
 const { BLOCK_REASONS, UNBLOCK_REASONS, adminID } = require("../configs/user-id.config");
@@ -10,7 +12,6 @@ const { isAdminID, validateSingleIdentifier } = require("../utils/auth.utils");
 const { logAuthEvent } = require("../utils/auth-log-utils");
 const { OK } = require("../configs/http-status.config");
 const { getLogIdentifiers } = require("../configs/error-handler.configs");
-const { verify } = require("jsonwebtoken");
 
 const blockUserAccount = async(req,res) => {
     try{
@@ -36,13 +37,17 @@ const blockUserAccount = async(req,res) => {
             return throwAccessDeniedError(res,`User (${user.userID}) is already blocked with (${user.blockReason}) reason.`)
         }
         // Block the user by setting isBlocked = true
-        user.blockedAt = Date.now();
-        user.isBlocked = true;
-        user.blockedBy = req.user.userID;
-        user.blockedVia = verifyWith;
-        user.blockCount += 1;
-        user.blockReason = blockReason;
-        await user.save();
+        await prisma.user.update({
+            where: { userID: user.userID },
+            data: {
+                isBlocked: true,
+                blockedAt: new Date(),
+                blockedBy: req.user.userID,
+                blockedVia: verifyWith,
+                blockCount: { increment: 1 },
+                blockReason: blockReason
+            }
+        });
         logWithTime(`✅ Admin (${req.user.userID}) blocked user (${user.userID}) from device ID: (${req.deviceID}) with (${blockReason}) reason via (${verifyWith})`);
         // Update data into auth.logs
         await logAuthEvent(req, "BLOCKED",{
@@ -84,14 +89,17 @@ const unblockUserAccount = async(req,res) => {
             logWithTime(`⚠️ User (${user.userID}) is already unblocked, admin (${req.user.userID}) tried to unblock it from device ID: (${req.deviceID}) with (${unblockReason}) reason`);
             return throwAccessDeniedError(res,`User (${user.userID}) is already unblocked with (${user.unblockReason}) reason.`)
         }
-        // Unblock the user by setting isBlocked = false
-        user.unblockedAt = Date.now();
-        user.isBlocked = false;
-        user.unblockedBy = req.user.userID;
-        user.unblockedVia = verifyWith;
-        user.unblockCount += 1;
-        user.unblockReason = unblockReason;
-        await user.save();
+        await prisma.user.update({
+            where: { userID: user.userID },
+            data: {
+                isBlocked: false,
+                unblockedAt: new Date(),
+                unblockedBy: req.user.userID,
+                unblockedVia: verifyWith,
+                unblockCount: { increment: 1 },
+                unblockReason: unblockReason
+            }
+        });
         logWithTime(`✅ Admin (${req.user.userID}) unblocked user (${user.userID}) from device ID: (${req.deviceID}) with (${unblockReason}) reason via (${verifyWith})`);
         // Update data into auth.logs
         await logAuthEvent(req, "UNBLOCKED",{
