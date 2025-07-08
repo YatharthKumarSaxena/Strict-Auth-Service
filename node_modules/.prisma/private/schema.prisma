@@ -52,7 +52,7 @@ model DeviceRateLimit {
   updatedAt     DateTime @updatedAt
 }
 
-model AuthLogSchema {
+model AuthLog {
   id          Int          @id @default(autoincrement())
   userID      String
   eventType   AuthLogEvent
@@ -68,18 +68,18 @@ model AuthLogSchema {
 
 model AdminAction {
   id           Int            @id
-  authLog      AuthLogSchema  @relation(fields: [id], references: [id])
+  authLog      AuthLog        @relation(fields: [id], references: [id])
   targetUserID String?
   reason       String?
   filter       AuthLogEvent[]
 }
 
-model counterSchema {
+model Counter {
   id  String @id
   seq Int    @default(0)
 }
 
-model rateLimitSchema {
+model RateLimit {
   deviceID      String
   routeKey      String
   requestCount  Int      @default(1)
