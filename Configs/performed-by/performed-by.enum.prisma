@@ -1,5 +1,0 @@
-enum PerformedBy {
-    CUSTOMER,
-    ADMIN,
-    SYSTEM
-}

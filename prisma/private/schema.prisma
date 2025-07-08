@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client-js"
   output   = "../../node_modules/.prisma/private"
@@ -6,38 +5,72 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("PRIVATE_DB_URL")  // Comes from your .env file
+  url      = env("PRIVATE_DB_URL") // Comes from your .env file
 }
 
-import "../../config/auth-log-events/auth-log-events.enum.prisma"
-import "../../config/device-type-events/device-type.enum.prisma"
-import "../../config/performed-by/performed-by.enum.prisma"
+enum AuthLogEvent {
+  LOGIN
+  LOGOUT_ALL_DEVICE
+  ACTIVATE
+  DEACTIVATE
+  BLOCKED
+  UNBLOCKED
+  CHANGE_PASSWORD
+  REGISTER
+  LOGOUT_SPECIFIC_DEVICE
+  CHECK_AUTH_LOGS
+  GET_USER_ACTIVE_DEVICES
+  GET_MY_ACTIVE_DEVICES
+  ACCESS_TOKEN
+  REFRESH_TOKEN
+  UPDATE_ACCOUNT_DETAILS
+  PROVIDE_USER_ACCOUNT_DETAILS
+  PROVIDE_MY_ACCOUNT_DETAILS
+  GET_TOTAL_REGISTERED_USERS
+  SET_REFRESH_TOKEN_FOR_ADMIN
+  CLEAN_UP_DEACTIVATED_USER
+  CLEAN_UP_AUTH_LOGS
+}
+
+enum DeviceType {
+  LAPTOP
+  MOBILE
+  TABLET
+}
+
+enum PerformedBy {
+  CUSTOMER
+  ADMIN
+  SYSTEM
+}
 
 model DeviceRateLimit {
-  id             Int          @id @default(autoincrement())
-  deviceID       String       @unique
-  attempts       Int          @default(1)
-  lastAttemptAt  DateTime     @default(now())
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
+  id            Int      @id @default(autoincrement())
+  deviceID      String   @unique
+  attempts      Int      @default(1)
+  lastAttemptAt DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model AuthLogSchema {
-  id             Int            @id @default(autoincrement())
-  userID         String         @index
-  eventType      AuthLogEvent
-  deviceID       String
-  deviceName     String?
-  deviceType     DeviceType?
-  performedBy    PerformedBy    @default(CUSTOMER)
-  timestamp      DateTime       @default(now())
-  adminAction    AdminAction?   @relation(fields:[id], references: [id])
+  id          Int          @id @default(autoincrement())
+  userID      String
+  eventType   AuthLogEvent
+  deviceID    String
+  deviceName  String?
+  deviceType  DeviceType?
+  performedBy PerformedBy  @default(CUSTOMER)
+  timestamp   DateTime     @default(now())
+  adminAction AdminAction?
+
+  @@index([userID])
 }
 
 model AdminAction {
-  id            Int             @id 
-  authLog       AuthLogSchema   @relation(fields: [id], references: [id])
-  targetUserID  String?
-  reason        String?
-  filter        AuthLogEvent[]  @db.VarChar(255)[]
+  id           Int            @id
+  authLog      AuthLogSchema  @relation(fields: [id], references: [id])
+  targetUserID String?
+  reason       String?
+  filter       AuthLogEvent[]
 }
