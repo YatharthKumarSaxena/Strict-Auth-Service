@@ -45,8 +45,7 @@ enum PerformedBy {
 }
 
 model DeviceRateLimit {
-  id            Int      @id @default(autoincrement())
-  deviceID      String   @unique
+  deviceID      String   @id
   attempts      Int      @default(1)
   lastAttemptAt DateTime @default(now())
   createdAt     DateTime @default(now())
@@ -73,4 +72,18 @@ model AdminAction {
   targetUserID String?
   reason       String?
   filter       AuthLogEvent[]
+}
+
+model counterSchema {
+  id  String @id
+  seq Int    @default(0)
+}
+
+model rateLimitSchema {
+  deviceID      String
+  routeKey      String
+  requestCount  Int      @default(1)
+  lastRequestAt DateTime @default(now())
+
+  @@id([deviceID, routeKey])
 }
