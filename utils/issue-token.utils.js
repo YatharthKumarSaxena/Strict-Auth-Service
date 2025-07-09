@@ -1,29 +1,26 @@
 // Extract the required Module
 const jwt = require("jsonwebtoken");
-const {secretCodeOfAccessToken, secretCodeOfRefreshToken, expiryTimeOfRefreshToken} = require("../configs/user-id.config");
+const {secretCodeOfAccessToken} = require("../configs/user-id.config");
+const {expiryTimeOfAccessToken} = require("../configs/token-expiry.config");
 const { logWithTime } = require("./time-stamps.utils");
 const { errorMessage, throwInternalServerError } = require("../configs/error-handler.configs");
 const { logAuthEvent, adminAuthLogForSetUp } = require("../utils/auth-log-utils");
-const getTokenCategory = (expiryTimeOfToken) =>{
-    return (expiryTimeOfToken === expiryTimeOfRefreshToken)? "REFRESH_TOKEN": "ACCESS_TOKEN";
-}
 
-exports.makeTokenWithMongoID = async(req,res,expiryTimeOfToken) => {
+exports.makeTokenWithMongoID = async(req,res) => {
     try {
         const user = req.user;
         const mongoID = user._id;
-        const secretCode = (expiryTimeOfToken === expiryTimeOfRefreshToken)? secretCodeOfRefreshToken: secretCodeOfAccessToken;
+        const secretCode = secretCodeOfAccessToken;
         const newToken = jwt.sign(
             {
                 id: mongoID,          // ✅ required for `findById`
             },
             secretCode,
-            { expiresIn: expiryTimeOfToken }
+            { expiresIn: expiryTimeOfAccessToken }
         );
-        const tokenCategory = getTokenCategory(expiryTimeOfToken);
         // Update data into auth.logs
-        await logAuthEvent(req, tokenCategory, null);
-        logWithTime(`✅ (${tokenCategory}) successfully created for user: ${user.userID}. Request is made from deviceID: (${req.deviceID})`);
+        await logAuthEvent(req, "ACCESS_TOKEN", null);
+        logWithTime(`✅ Access Token successfully created for user: ${user.userID}. Request is made from deviceID: (${req.deviceID})`);
         return newToken;
     } catch (err) {
         logWithTime("`❌ An Internal Error Occurred while creating the token");
@@ -33,21 +30,21 @@ exports.makeTokenWithMongoID = async(req,res,expiryTimeOfToken) => {
     }
 };
 
-exports.makeTokenWithMongoIDForAdmin = async(user,expiryTimeOfToken) => {
+exports.makeTokenWithMongoIDForAdmin = async(user) => {
     try {
         const mongoID = user._id;
-        const secretCode = (expiryTimeOfToken === expiryTimeOfRefreshToken)? secretCodeOfRefreshToken: secretCodeOfAccessToken;
+        const secretCode = secretCodeOfAccessToken;
         const newToken = jwt.sign(
             {
                 id: mongoID,          // ✅ required for `findById`
             },
             secretCode,
-            { expiresIn: expiryTimeOfToken }
+            { expiresIn: expiryTimeOfAccessToken }
         );
-        const tokenCategory = getTokenCategory(expiryTimeOfToken);
         // Update data into auth.logs
-        await adminAuthLogForSetUp(user, tokenCategory);
-        logWithTime(`✅ (${tokenCategory}) successfully created for user: ${user.userID}. Request is made from deviceID: (${user.devices[0].deviceID})`);
+        await adminAuthLogForSetUp(user, "ACCESS_TOKEN");
+        const deviceID = user?.device?.deviceID || "Unknown";
+        logWithTime(`✅ Access Token successfully created for user: ${user.userID}. Request is made from deviceID: (${deviceID})`);
         return newToken;
     } catch (err) {
         logWithTime("`❌ An Internal Error Occurred while creating the token for Admin");
