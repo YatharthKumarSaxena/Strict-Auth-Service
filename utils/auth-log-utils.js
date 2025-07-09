@@ -1,4 +1,4 @@
-const AuthLogModel = require("../models/auth-logs.model");
+const prismaPrivate = require("../clients/private.prisma");
 const { logWithTime } = require("../utils/time-stamps.utils");
 const { errorMessage } = require("../configs/error-handler.configs");
 
@@ -27,19 +27,21 @@ const logAuthEvent = async (req, eventType, logOptions = {}) => {
 
         // Admin-specific target actions
         if (logOptions && (logOptions.performedOn?.userType || logOptions.filter)) {
-            baseLog.adminActions = {};
-            if (logOptions.performedOn)
-                baseLog.adminActions.targetUserID = logOptions.adminActions.targetUserID;
-            if (logOptions.filter)
-                baseLog.adminActions.filter = logOptions.filter || null;
-            if (logOptions.reason || req.body?.reason || req.query?.reason) {
-                baseLog.adminActions.reason =  req.body?.reason?.trim() || req.query?.reason?.trim() || logOptions.adminActions?.reason?.trim() || null;
-            }
+            baseLog.adminAction = {
+                create: {
+                    targetUserID: logOptions?.adminAction?.targetUserID || null,
+                    reason: req.body?.reason?.trim() || req.query?.reason?.trim() || logOptions?.adminAction?.reason?.trim() || null,
+                    filter: logOptions?.filter || []
+                }
+            };
         }
 
-        const result = new AuthLogModel(baseLog);
-        await result.save();
+        await prismaPrivate.authLog.create({
+            data: baseLog
+        });
+
         logWithTime(`📘 AuthLog saved successfully: ${eventType} | user: ${userID} | device: ${req.deviceID}`);
+
     } catch (err) {
         logWithTime(`❌ Internal Error saving AuthLog for event: ${eventType}`);
         errorMessage(err);
@@ -60,9 +62,19 @@ const adminAuthLogForSetUp = async(user,eventType) => {
         baseLog.deviceName = user.devices?.info[0]?.deviceName || process.env.DEVICE_NAME;
         baseLog.deviceType = user.devices?.info[0]?.deviceType || process.env.DEVICE_TYPE;
 
-        const result = new AuthLogModel(baseLog);
-        await result.save();
+        await prismaPrivate.authLog.create({
+            data: {
+                userID: baseLog.userID,
+                eventType: baseLog.eventType,
+                deviceID: baseLog.deviceID,
+                deviceName: baseLog.deviceName,
+                deviceType: baseLog.deviceType,
+                performedBy: baseLog.performedBy
+            }
+        });
+
         logWithTime(`📘 AuthLog saved successfully: ${eventType} | user: ${user.userID} | device ID: ${deviceID}`);
+
     }catch(err){
         logWithTime(`❌ Internal Error saving AuthLog for Admin event: ${eventType} at set up phase`);
         errorMessage(err);
