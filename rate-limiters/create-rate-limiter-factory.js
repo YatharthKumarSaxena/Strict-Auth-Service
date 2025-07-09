@@ -1,7 +1,8 @@
 // 🛡️ utils/rateLimiter.factory.js
 const { errorMessage, throwInternalServerError, throwResourceNotFoundError, getLogIdentifiers } = require("../configs/error-handler.configs");
 const { logWithTime } = require("../utils/time-stamps.utils");
-const UserModel = require("../models/user.model");
+const prisma = require("../clients/public.prisma");
+const prismaPrivate = require("../clients/private.prisma");
 const DeviceRateLimit = require("../models/device-rate-limit.model");
 const { TOO_MANY_REQUESTS, NOT_FOUND } = require("../configs/http-status.config");
 
@@ -19,15 +20,18 @@ const createRateLimiter = (maxRequests, timeWindowInMs) => {
       }
 
       let user = req.user;
-      if(!user) user = await UserModel.findOne({ userID });
+      if(!user) user = await prisma.user.findUnique({
+        where:{userID: userID}  
+      });
 
       if (!user) {
         logWithTime(`Unauthorized User is provided from device with device id: (${req.deviceID})`);
         return res.status(NOT_FOUND).json({ message: "User not found." });
       }
 
-      const device = user.devices.info.find(d => d.deviceID === deviceID);
-      if (!device) {
+      const device = user.device;
+
+      if (!device || req.deviceID !== device.deviceID) {
         logWithTime(`User (${user.userID}) is doing action from invalid device id: (${req.deviceID})`);
         return res.status(NOT_FOUND).json({ message: "Device not registered." });
       }
@@ -39,8 +43,13 @@ const createRateLimiter = (maxRequests, timeWindowInMs) => {
       if (timeDiff > timeWindowInMs) {
         // 🧼 Reset the count
         logWithTime(`🔄 Rate limit reset for userID: ${userID} on deviceID: ${deviceID} by User with Device Based Rate Limiter`);
-        device.lastUsedAt = new Date(now);
-        device.requestCount = 1;
+        await prisma.device.update({
+          where: { deviceID: deviceID },
+          data: {
+            requestCount: 1,
+            lastUsedAt: new Date(now),
+          }
+        });
       } else {
         if (device.requestCount >= maxRequests) {
           const resetInSec = Math.ceil((timeWindowInMs - timeDiff) / 1000);
@@ -51,7 +60,13 @@ const createRateLimiter = (maxRequests, timeWindowInMs) => {
             retryAfter: `(${resetInSec}) seconds`
           });
         }
-        device.requestCount += 1;
+        await prisma.device.update({
+          where: { deviceID: deviceID },
+          data: {
+            requestCount: { increment: 1 },
+            lastUsedAt: new Date(now)
+          }
+        });
       }
       
       const remaining = maxRequests - device.requestCount;
@@ -61,7 +76,6 @@ const createRateLimiter = (maxRequests, timeWindowInMs) => {
       res.setHeader("X-RateLimit-Remaining", remaining >= 0 ? remaining : 0);
       res.setHeader("X-RateLimit-Reset", resetInSec > 0 ? resetInSec : 0);
 
-      await user.save();
       if (!res.headersSent)return next();
     } catch (err) {
       const getIdentifiers = getLogIdentifiers(req);
@@ -82,15 +96,19 @@ const createDeviceBasedRateLimiter = (maxRequests, timeWindowInMs) => {
         return throwResourceNotFoundError(res,"Device ID (required for rate limiting).")
       }
 
-      let record = await DeviceRateLimit.findOne({ deviceID });
+      let record = await prismaPrivate.deviceRateLimit.findUnique({
+        where: {deviceID : deviceID}
+      });
 
       const now = Date.now();
 
       if (!record) {
         // 🆕 First time attempt from this device
         logWithTime(`🔄 Device Based rate Limiter created Rate Limiter for deviceID: ${deviceID}`);
-        record = await DeviceRateLimit.create({
-          deviceID: deviceID
+        record = await prismaPrivate.deviceRateLimit.create({
+          data: {
+            deviceID: deviceID
+          }
         });
         if (!res.headersSent)return next();
       }
@@ -100,9 +118,14 @@ const createDeviceBasedRateLimiter = (maxRequests, timeWindowInMs) => {
       if (timeSinceLastAttempt > timeWindowInMs) {
         // 🔄 Reset attempts if window expired
         logWithTime(`🔄 Rate limit reset for deviceID: ${deviceID} by Device Based Rate Limiter`);
-        record.attempts = 1;
-        record.lastAttemptAt = now;
-        await record.save();
+        await prismaPrivate.deviceRateLimit.update({
+          where: { deviceID: deviceID },
+          data: {
+            attempts: 1,
+            lastAttemptAt: new Date(now)
+          }
+        });
+
         if (!res.headersSent)return next();
       }
 
@@ -121,9 +144,14 @@ const createDeviceBasedRateLimiter = (maxRequests, timeWindowInMs) => {
       res.setHeader("X-RateLimit-Reset", Math.ceil((timeWindowInMs - timeSinceLastAttempt) / 1000));
 
       // 🔁 Increment attempts and continue
-      record.attempts += 1;
-      record.lastAttemptAt = now;
-      await record.save();
+      await prismaPrivate.deviceRateLimit.update({
+        where: { deviceID: deviceID },
+        data: {
+          attempts: record.attempts + 1,
+          lastAttemptAt: new Date(now)
+        }
+      });
+
       if (!res.headersSent)return next();
 
     } catch (err) {
