@@ -61,13 +61,13 @@ async function init(){ // To use await we need to make function Asynchronous
                         }
                     });
                     console.log("📦 JWT Access Token: ", accessToken);
-                    await adminAuthLogForSetUp(user, authLogEvents.LOGIN);
+                    await adminAuthLogForSetUp(user, authLogEvents.LOGIN, null);
                 }
                 */
                 logWithTime("Admin User details are given below:- ");
                 console.log(user);
                 // Update data into auth.logs
-                await adminAuthLogForSetUp(user, authLogEvents.REGISTER);
+                await adminAuthLogForSetUp(user, authLogEvents.REGISTER, null);
             }catch(err){
                 logWithTime("⚠️ Error Occured while Creating an Admin User");
                 errorMessage(err);

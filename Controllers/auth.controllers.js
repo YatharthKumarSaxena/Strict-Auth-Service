@@ -7,7 +7,7 @@
 */
 
 // Extracting the required modules
-const { SALT, expiryTimeOfAccessToken, expiryTimeOfRefreshToken } = require("../configs/user-id.config");
+const { SALT, expiryTimeOfAccessToken} = require("../configs/user-id.config");
 const UserModel = require("../models/user.model");
 const bcryptjs = require("bcryptjs")
 const { throwInvalidResourceError, errorMessage, throwInternalServerError, getLogIdentifiers, throwResourceNotFoundError } = require("../configs/error-handler.configs");
@@ -19,17 +19,36 @@ const { makeUserID } = require("../services/userID.service");
 const { createDeviceField, getDeviceByID, checkDeviceThreshold, checkUserDeviceLimit } = require("../utils/device.utils");
 const { setAccessTokenHeaders } = require("../utils/token-headers.utils");
 const { logAuthEvent } =require("../utils/auth-log-utils");
-const { setRefreshTokenCookie, clearRefreshTokenCookie } = require("../utils/cookie-manager.utils");
+const { setAccessTokenCookie, clearAccessTokenCookie } = require("../utils/cookie-manager.utils");
 const { CREATED, BAD_REQUEST, INSUFFICIENT_STORAGE, INTERNAL_ERROR, OK } = require("../configs/http-status.config");
+const authLogEvents = require("../configs/auth-log-events.config");
+const prisma = require("../clients/public.prisma")
 
-const loginTheUser = async (user, refreshToken, device, res) => {
+const loginTheUser = async (user, device, res) => {
     try {
-        user.refreshToken = refreshToken;
-        user.isVerified = true;
-        user.lastLogin = Date.now();
-        user.loginCount += 1;
-        user.devices.info.push(device);
-        await user.save();
+        await prisma.user.update({
+            where: {userID: user.userID},
+            data: {
+                isVerified: true,
+                lastLogin: new Date(),
+                loginCount: {increment: 1},
+            }
+        });
+        await prisma.device.upsert({
+            where: { userID: user.userID },
+            update: {
+                lastUsedAt: new Date(),
+                deviceType: device.deviceType || undefined,
+                deviceName: device.deviceName || undefined
+            },
+            create: {
+                deviceID: device.deviceID,
+                userID: user.userID,
+                deviceType: device.deviceType || undefined,
+                deviceName: device.deviceName || undefined,
+                lastUsedAt: new Date()
+            }
+        });
         return true;
     } catch (err) {
         logWithTime(`❌ Internal Error occurred while logging in user (${user.userID})`);
@@ -42,19 +61,25 @@ const loginTheUser = async (user, refreshToken, device, res) => {
 // 🧠 auth.controller.js or auth.service.js
 const logoutUserCompletely = async (user, res, req, context = "general") => {
     try {
-        user.refreshToken = null;
-        user.isVerified = false;
-        user.devices.info = [];
-        user.jwtTokenIssuedAt = null;
-        user.lastLogout = Date.now();
+        await prisma.device.delete({
+            where: { userID: user.userID }
+        });
 
-        const isCookieCleared = clearRefreshTokenCookie(res);
+        await prisma.user.update({
+            where: {userID: user.userID},
+            data: {
+                isVerified: false,
+                lastLogout: new Date(),
+                jwtTokenIssuedAt: null
+            }
+        });
+
+        const isCookieCleared = clearAccessTokenCookie(res);
         if (!isCookieCleared) {
             logWithTime(`❌ Cookie clear failed for user (${user.userID}) during ${context}. Device ID: (${req.deviceID})`);
             return false;
         }
 
-        await user.save();
         logWithTime(`👋 User (${user.userID}) logged out successfully from all devices during ${context}. Device ID: (${req.deviceID})`);
         return true;
     } catch (err) {
@@ -78,7 +103,7 @@ const checkUserIsNotVerified = async(req,res) => {
         }
         const tokenIssueTime = new Date(user.jwtTokenIssuedAt).getTime(); // In milli second current time is return
         const currentTime = Date.now(); // In milli second current time is return
-        if(currentTime > tokenIssueTime + expiryTimeOfRefreshToken*1000){ // expiryTimeOfJWTtoken is in second multiplying by 1000 convert it in milliseconds
+        if(currentTime > tokenIssueTime + expiryTimeOfAccessToken*1000){ // expiryTimeOfJWTtoken is in second multiplying by 1000 convert it in milliseconds
             const isUserLoggedOut = await logoutUserCompletely(user,res,req,"in check user is not verfied function")
             if(isUserLoggedOut)return true;
             return false; // 🧠 session expired, response already sent
