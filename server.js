@@ -9,12 +9,11 @@ require("./cron-jobs"); // 👈 This will auto-load index.js by default
 
 // 🔹 Extracting Required Modules to make Our Application
 const express = require("express"); // Extract Express Module
-const mongoose = require("mongoose"); // Extract Mongoose Module
 const { PORT_NUMBER } = require("./configs/server.config");
+const prisma = require("./clients/public.prisma");
 const app = express(); // App is an Express Function
-const { DB_URL } = require("./configs/db.config");
-const UserModel = require("./models/user.model"); 
-const { expiryTimeOfAccessToken, expiryTimeOfRefreshToken, adminUser } = require("./configs/user-id.config");
+const authLogEvents = require("./configs/auth-log-events.config");
+const { expiryTimeOfAccessToken, adminUser } = require("./configs/user-id.config");
 const {errorMessage} = require("./configs/error-handler.configs");
 const { logWithTime } = require("./utils/time-stamps.utils");
 const { makeTokenWithMongoIDForAdmin } = require("./utils/issue-token.utils");
@@ -29,62 +28,46 @@ app.use(cookieParser()); // ✅ Makes req.cookies accessible
  * 🔹 And password + random text are encrypted to make password more complicated to crackCreate an Admin User if not Exits at the Start of the Application
 */
 
-// 🔹 And password + random text are encrypted to make password more complicated to crackConnection with MongoDB
-mongoose.connect(DB_URL); // Specifying where to connect
 
-const db = mongoose.connection; // Ordering to Connect
-
-// 🔹 And password + random text are encrypted to make password more complicated to crackIf MongoDB is not connected 
-db.on("error",(err)=>{
-    logWithTime("⚠️ Error Occured while Connecting to Database");
-    errorMessage(err);
-    return;
-})
-
-// 🔹 And password + random text are encrypted to make password more complicated to crackIf MongoDB is connected successfully
-db.once("open",()=>{
-    logWithTime("✅ Connection estabalished with MongoDB Succesfully");
-    init();
-})
 
 // 🔹 We are keeping One Admin User for each Local Machine
 async function init(){ // To use await we need to make function Asynchronous
     try{
-        let user = await UserModel.findOne({userType: "ADMIN"}); // Finding the User who is Admin
+        let user = await prisma.user.findFirst({
+            where: {userType: "ADMIN"}
+        }); // Finding the User who is Admin
         if(user){ // Means the Admin User Exists
             logWithTime("🟢 Admin User already exists");
         }
         else{ // Since findOne returns null when no user found this statement will execute if no Admin User exists
             try{
-                const user = await UserModel.create(adminUser);
+                const user = await prisma.user.create({
+                    data: adminUser
+                });
                 logWithTime("👑 Admin User Created Successfully");
                 /*
-                const refreshToken = await makeTokenWithMongoIDForAdmin(user,expiryTimeOfRefreshToken);
-                if(refreshToken){
-                    logWithTime("👑 Welcome Admin, you are successfully logged in!");
-                    logWithTime("🔐 Here is your refresh token");
-                    user.isVerified = true;
-                    user.jwtTokenIssuedAt = Date.now();
-                    user.refreshToken = refreshToken;
-                    user.lastLogin = Date.now();
-                    user.loginCount = 1;
-                    user.lastActivatedAt = Date.now();
-                    await user.save();
-                    console.log("📦 JWT Refresh Token: ", refreshToken);
-                }
-                // Use this code only in Development Phase (Not For Production Phase)
                 const accessToken = await makeTokenWithMongoIDForAdmin(user,expiryTimeOfAccessToken);
                 if(accessToken){
-                    logWithTime("Use this Access Token for further Actions!");
+                    logWithTime("👑 Welcome Admin, you are successfully logged in!");
                     logWithTime("🔐 Here is your access token");
+                    await prisma.user.update({
+                        where: {userID: adminID},
+                        data: {
+                            isVerified: true,
+                            jwtTokenIssuedAt: new Date(),
+                            lastLogin: new Date(),
+                            loginCount: 1,
+                            lastActivatedAt: new Date()
+                        }
+                    });
                     console.log("📦 JWT Access Token: ", accessToken);
-                    // Update data into auth.logs
-                    await adminAuthLogForSetUp(user, "LOGIN");
-                }*/
+                    await adminAuthLogForSetUp(user, authLogEvents.LOGIN);
+                }
+                */
                 logWithTime("Admin User details are given below:- ");
                 console.log(user);
                 // Update data into auth.logs
-                await adminAuthLogForSetUp(user, "REGISTER");
+                await adminAuthLogForSetUp(user, authLogEvents.REGISTER);
             }catch(err){
                 logWithTime("⚠️ Error Occured while Creating an Admin User");
                 errorMessage(err);
@@ -97,6 +80,12 @@ async function init(){ // To use await we need to make function Asynchronous
         return;
     }
 }
+
+// 🔃 Initialize the Admin Setup Logic
+(async () => {
+  await init();
+})();
+
 
 // 🔹 Mount All Routes via Centralized Router Index
 require("./routers/index.routes")(app);
