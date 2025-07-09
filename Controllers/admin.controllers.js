@@ -2,7 +2,6 @@
 
 // Extract the Required Modules
 const prisma = require('../clients/public.prisma');   // ← user table lives in public DB
-const prismaPrivate = require('../clients/private.prisma'); // ← for AuthLog rewrite later
 const { throwInvalidResourceError, throwInternalServerError, errorMessage, throwAccessDeniedError } = require("../configs/error-handler.configs");
 const { logWithTime } = require("../utils/time-stamps.utils");
 const { BLOCK_REASONS, UNBLOCK_REASONS, adminID } = require("../configs/user-id.config");
@@ -52,7 +51,7 @@ const blockUserAccount = async(req,res) => {
         // Update data into auth.logs
         await logAuthEvent(req, "BLOCKED",{
             performedOn: user,
-            adminActions: { reason: blockReason, targetUserID: user.userID }
+            adminAction: { reason: blockReason, targetUserID: user.userID }
         });  
         return res.status(OK).json({
             success: true,
@@ -104,7 +103,7 @@ const unblockUserAccount = async(req,res) => {
         // Update data into auth.logs
         await logAuthEvent(req, "UNBLOCKED",{
             performedOn: user,
-            adminActions: { reason: unblockReason, targetUserID: user.userID }
+            adminAction: { reason: unblockReason, targetUserID: user.userID }
         });  
         return res.status(OK).json({
             success: true,
@@ -235,7 +234,7 @@ const checkUserAccountStatus = async(req,res) => {
         // Update data into auth.logs
         await logAuthEvent(req, "PROVIDE_USER_ACCOUNT_DETAILS", {
             performedOn: user,
-            adminActions: { reason: reason, targetUserID: user.userID }
+            adminAction: { reason: reason, targetUserID: user.userID }
         });
 
         logWithTime(`✅ User Account Details with User ID: (${user.userID}) is provided Successfully to Admin (${req.user.userID}) from device ID: (${req.deviceID}) via (${verifyWith})`);
@@ -283,7 +282,7 @@ const getUserActiveDevicesForAdmin = async (req, res) => {
     // 📝 Log event
     await logAuthEvent(req, "GET_USER_ACTIVE_DEVICES", {
       performedOn: user,
-      adminActions: { reason: reason, targetUserID: user.userID }
+      adminAction: { reason: reason, targetUserID: user.userID }
     });
 
     logWithTime(`👁️ Admin (${req.user.userID}) viewed ${sortedDevices.length} active devices of User (${user.userID})`);

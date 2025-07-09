@@ -1,6 +1,6 @@
 const { errorMessage,throwInternalServerError,throwInvalidResourceError } = require("../configs/error-handler.configs");
 const { logWithTime } = require("../utils/time-stamps.utils");
-const UserModel = require("../models/user.model");
+const prisma = require("../clients/public.prisma");
 const bcryptjs = require("bcryptjs");
 const { BAD_REQUEST } = require("../configs/http-status.config");
 const { isValidRegex,validateLength } = require("../utils/field-validators");
@@ -44,14 +44,14 @@ const validateSingleIdentifier = (req, res, source = 'body') => {
 const checkUserExists = async(emailID,fullPhoneNumber,res) => {
     try{
         let count = 0;
-        let user = await UserModel.findOne({fullPhoneNumber: fullPhoneNumber})
+        let user = await prisma.user.findUnique({where:{fullPhoneNumber: fullPhoneNumber}})
         let reason = "";
         if(user){
             logWithTime("⚠️ User Already Exists with Phone Number: "+fullPhoneNumber);
             reason = "Phone Number: "+fullPhoneNumber;
             count++;
         }
-        user = await UserModel.findOne({emailID: emailID});
+        user = await prisma.user.findUnique({where:{emailID: emailID}});
         if(user){
             logWithTime("⚠️ User Already Exists with Email ID: "+emailID);
             if(count)reason= "Phone Number: "+fullPhoneNumber+" and Email ID: "+emailID;
@@ -86,7 +86,10 @@ const checkAndAbortIfUserExists = async (emailID, fullPhoneNumber, res) => {
 
 const checkPasswordIsValid = async(req,user) => {
     const providedPassword = req.body.password || req.body.oldPassword;
-    const userWithPassword = await UserModel.findOne({ userID: user.userID }).select("+password");
+    const userWithPassword = await prisma.user.findUnique({
+        where: { userID: user.userID },
+        select: { password: true } 
+    });
     if (!userWithPassword) return false;
     const actualPassword = userWithPassword.password;
     const isPasswordValid = await bcryptjs.compare(providedPassword, actualPassword);

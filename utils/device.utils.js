@@ -1,27 +1,29 @@
-const { deviceThreshold, usersPerDevice } = require("../configs/user-id.config");
 const { logWithTime } = require("../utils/time-stamps.utils");
 const { errorMessage,throwInternalServerError } = require("../configs/error-handler.configs");
-const UserModel = require("../models/user.model");
+const prisma = require("../clients/public.prisma");
 const { FORBIDDEN } = require("../configs/http-status.config");
 
-// 📦 Utility to get a device from user's devices.info array by deviceID
+// 📦 Utility to get a device from user's device by deviceID
 const getDeviceByID = async (user, deviceID) => {
     // 🛠 Re-fetch fresh user from DB to ensure up-to-date device list
-    user = await UserModel.findOne({ userID: user.userID });
-    // 🔍 Check if devices.info array exists and is not empty
-    if (!user?.devices?.info?.length) return null;
-    // 🔎 Find device by deviceID inside devices.info
-    return user.devices.info.find(d => d.deviceID === deviceID) || null;
+    user = await prisma.user.findUnique({
+        where:{ userID: user.userID },
+        include: { device: true }
+    });
+    // 🔍 Check if device not exist
+    if (!user?.device) return null;
+    // 🔎 Check device belongs to User or not
+    if (user.device && user.device.deviceID === deviceID)return user.device;
+    return null;
 };
 
 const checkUserDeviceLimit = (req,res) => {
     const user = req.user || req.foundUser;
-    const thresholdLimit = (user.userType === "ADMIN")?deviceThreshold.ADMIN:deviceThreshold.CUSTOMERS;
-    if (user.devices.info.length >= thresholdLimit) {
-        logWithTime(`Login Request Denied as User (${user.userID}) has crossed threshold limit of device sessions. Request is made from deviceID: (${req.deviceID})`);
+    if (user.device) {
+        logWithTime(`Login Request Denied as User (${user.userID}) is logged in on another device. Request is made from deviceID: (${req.deviceID})`);
         res.status(FORBIDDEN).json({ 
             success: false,
-            message: "❌ Device threshold exceeded. Please logout from another device." 
+            message: "❌ You are logged in on another device. Please logout from that device." 
         });
         return true;
     }
@@ -30,17 +32,16 @@ const checkUserDeviceLimit = (req,res) => {
 
 const checkDeviceThreshold = async (deviceID, res) => {
     try {
-        const thresholdLimit = usersPerDevice; // 📌 e.g., 5 users per device
 
-        const usersUsingDevice = await UserModel.find({
-            "devices.info.deviceID": deviceID
-        }).select("userID"); // Select minimal fields for performance
+        const usersUsingDevice = await prisma.device.findUnique({
+            where: { deviceID: deviceID }
+        });
 
-        if (usersUsingDevice.length >= thresholdLimit) {
-            logWithTime(`🛑 Device Threshold Exceeded: Device (${deviceID}) is already linked with ${usersUsingDevice.length} users.`);
+        if (usersUsingDevice) {
+            logWithTime(`🛑 Device Threshold Exceeded: Device (${deviceID}) is already linked with one user.`);
             res.status(FORBIDDEN).json({
                 success: false,
-                message: "❌ Device limit reached. Too many users already signed in on this device."
+                message: "❌ Device limit reached. A user is already signed in on this device."
             });
             return true;
         }

@@ -1,40 +1,40 @@
 const { httpOnly, secure, sameSite } = require("../configs/cookies.config");
 const { errorMessage, throwInternalServerError } = require("../configs/error-handler.configs");
-const { expiryTimeOfRefreshToken } = require("../configs/user-id.config");
+const { expiryTimeOfAccessToken } = require("../configs/token-expiry.config");
 const { logWithTime } = require("./time-stamps.utils");
 
 // utils/cookie-manager.utils.js
 
-const setRefreshTokenCookie = (res, token) => {
+const setAccessTokenCookie = (res, token) => {
     try{
-        res.cookie("refreshToken", token, {
+        res.cookie("accessToken", token, {
             httpOnly: httpOnly,
             sameSite: sameSite,
             secure: secure,
-            maxAge: expiryTimeOfRefreshToken
+            maxAge: expiryTimeOfAccessToken
         });
-        logWithTime(`🍪 Refresh Token Cookie Set`);
+        logWithTime(`🍪 Access Token Cookie Set`);
         return true;
     }catch(err){
-        logWithTime("An Internal Error occured while setting the Refresh Token in Cookie");
+        logWithTime("An Internal Error occured while setting the Access Token in Cookie");
         errorMessage(err);
         throwInternalServerError(res);
         return false;
     }
 };
 
-const clearRefreshTokenCookie = (res) => {
+const clearAccessTokenCookie = (res) => {
     try{
-        res.clearCookie("refreshToken", {
+        res.clearCookie("accessToken", {
             httpOnly: httpOnly,
             sameSite: sameSite,
             secure: secure,
-            maxAge: expiryTimeOfRefreshToken
+            maxAge: expiryTimeOfAccessToken
         });
-        logWithTime(`🧹 Refresh Token Cookie Cleared`);
+        logWithTime(`🧹 Access Token Cookie Cleared`);
         return true;
     }catch(err){
-        logWithTime("An Internal Error occured while clearing the Refresh Token from Cookie");
+        logWithTime("An Internal Error occured while clearing the Access Token from Cookie");
         errorMessage(err);
         throwInternalServerError(res);
         return false;
@@ -42,6 +42,6 @@ const clearRefreshTokenCookie = (res) => {
 };
 
 module.exports = {
-    setRefreshTokenCookie: setRefreshTokenCookie,
-    clearRefreshTokenCookie: clearRefreshTokenCookie
+    setAccessTokenCookie: setAccessTokenCookie,
+    clearAccessTokenCookie: clearAccessTokenCookie
 }
