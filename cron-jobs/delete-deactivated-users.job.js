@@ -1,9 +1,10 @@
 const cron = require("node-cron");
-const UserModel = require("../models/user.model");
+const prisma = require("../clients/public.prisma");
 const { logWithTime } = require("../utils/time-stamps.utils");
 const { userCleanup } = require("../configs/cron.config");
 const { errorMessage } = require("../configs/error-handler.configs");
 const { logAuthEvent } = require("../utils/auth-log-utils");
+const authLogEvents = require("../configs/auth-log-events.config");
 
 const deleteDeactivatedUsers = async () => {
   try {
@@ -14,23 +15,25 @@ const deleteDeactivatedUsers = async () => {
     }
     const cutoffDate = new Date(Date.now() - userCleanup.deactivatedRetentionDays * 24 * 60 * 60 * 1000);
     logWithTime("📅 [CRON-JOB] ➤ Deactivated Users Cleanup Started...");
-    const result = await UserModel.deleteMany({
-      isActive: false,
-      lastDeactivatedAt: { $lt: cutoffDate },
-      userType: "CUSTOMER"
+    const result = await prisma.user.deleteMany({
+      where: {
+        isActive: false,
+        lastDeactivatedAt: { lt: cutoffDate },
+        userType: "CUSTOMER"
+      }
     });
     await logAuthEvent({
       user: { userID: "SYSTEM_BATCH_CRON", userType: "SYSTEM" },
       deviceID: process.env.DEVICE_UUID,
       deviceName: process.env.DEVICE_NAME,
       deviceType: process.env.DEVICE_TYPE
-    }, "CLEAN_UP_DEACTIVATED_USER", {
-    reason: `Deleted ${result.deletedCount} inactive users (> ${userCleanup.deactivatedRetentionDays} days)`
+    }, authLogEvents.CLEAN_UP_DEACTIVATED_USER , {
+    reason: `Deleted ${result.count} inactive users (> ${userCleanup.deactivatedRetentionDays} days)`
     });
-    if(result.deletedCount === 0){
+    if(result.count === 0){
       logWithTime(`📭 No users eligible for deletion (deactivated more than ${userCleanup.deactivatedRetentionDays} days).`);
     }else {
-      logWithTime(`🗑️ Account Deletion Job: ${result.deletedCount} users hard deleted (inactive > ${userCleanup.deactivatedRetentionDays} days).`);
+      logWithTime(`🗑️ Account Deletion Job: ${result.count} users hard deleted (inactive > ${userCleanup.deactivatedRetentionDays} days).`);
     }
   } catch (err) {
     logWithTime("❌ Internal Error in deleting old deactivated users.");
