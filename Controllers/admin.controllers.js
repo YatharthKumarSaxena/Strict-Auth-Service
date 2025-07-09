@@ -5,12 +5,12 @@ const prisma = require('../clients/public.prisma');   // ← user table lives in
 const { throwInvalidResourceError, throwInternalServerError, errorMessage, throwAccessDeniedError } = require("../configs/error-handler.configs");
 const { logWithTime } = require("../utils/time-stamps.utils");
 const { BLOCK_REASONS, UNBLOCK_REASONS, adminID } = require("../configs/user-id.config");
-const AuthLogModel = require("../models/auth-logs.model");
 const { fetchUser } = require("../middlewares/helper.middleware");
 const { isAdminID, validateSingleIdentifier } = require("../utils/auth.utils");
 const { logAuthEvent } = require("../utils/auth-log-utils");
 const { OK } = require("../configs/http-status.config");
 const { getLogIdentifiers } = require("../configs/error-handler.configs");
+const authLogEvents = require("../configs/auth-log-events.config");
 
 const blockUserAccount = async(req,res) => {
     try{
@@ -49,7 +49,7 @@ const blockUserAccount = async(req,res) => {
         });
         logWithTime(`✅ Admin (${req.user.userID}) blocked user (${user.userID}) from device ID: (${req.deviceID}) with (${blockReason}) reason via (${verifyWith})`);
         // Update data into auth.logs
-        await logAuthEvent(req, "BLOCKED",{
+        await logAuthEvent(req, authLogEvents.BLOCKED ,{
             performedOn: user,
             adminAction: { reason: blockReason, targetUserID: user.userID }
         });  
@@ -101,7 +101,7 @@ const unblockUserAccount = async(req,res) => {
         });
         logWithTime(`✅ Admin (${req.user.userID}) unblocked user (${user.userID}) from device ID: (${req.deviceID}) with (${unblockReason}) reason via (${verifyWith})`);
         // Update data into auth.logs
-        await logAuthEvent(req, "UNBLOCKED",{
+        await logAuthEvent(req, authLogEvents.UNBLOCKED ,{
             performedOn: user,
             adminAction: { reason: unblockReason, targetUserID: user.userID }
         });  
@@ -137,8 +137,6 @@ const getUserAuthLogs = async (req, res) => {
     let userID;
     if(user)userID = user.userID;
 
-    const query = {};
-
     if (userID){
         const isUserCheckedAdmin = isAdminID(userID);
         if(isUserCheckedAdmin && userID !== adminID){
@@ -148,21 +146,34 @@ const getUserAuthLogs = async (req, res) => {
         query.userID = userID;
     } 
     
-    if (eventType && Array.isArray(eventType) && eventType.length > 0) {
-      query.eventType = { $in: eventType };
+    const prismaQuery = {
+      where: {},
+      orderBy: {
+        timestamp: 'desc'
+      }
+    };
+
+    if (userID) {
+      prismaQuery.where.userID = userID;
     }
 
-    if (startDate && endDate) {
-      query.timestamp = {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
+    if (eventType && Array.isArray(eventType) && eventType.length > 0) {
+      prismaQuery.where.eventType = {
+        in: eventType
       };
     }
 
-    const logs = await AuthLogModel.find(query).sort({ timestamp: -1 });
+    if (startDate && endDate) {
+      prismaQuery.where.timestamp = {
+        gte: new Date(startDate),
+        lte: new Date(endDate)
+      };
+    }
+
+    const logs = await prismaPrivate.authLog.findMany(prismaQuery);
 
     // Update data into auth.logs
-    await logAuthEvent(req, "CHECK_AUTH_LOGS", {
+    await logAuthEvent(req, authLogEvents.CHECK_AUTH_LOGS , {
         filter: eventType || "ALL"
     });
 
@@ -232,7 +243,7 @@ const checkUserAccountStatus = async(req,res) => {
         const reason = req.query.reason;
 
         // Update data into auth.logs
-        await logAuthEvent(req, "PROVIDE_USER_ACCOUNT_DETAILS", {
+        await logAuthEvent(req, authLogEvents.PROVIDE_USER_ACCOUNT_DETAILS , {
             performedOn: user,
             adminAction: { reason: reason, targetUserID: user.userID }
         });
@@ -264,7 +275,7 @@ const getUserActiveDevicesForAdmin = async (req, res) => {
 
     // ✅ Proceed with extracting devices
     const user = req.foundUser;
-    if (!Array.isArray(user.devices?.info) || user.devices.info.length === 0) {
+    if (!user.device) {
       logWithTime(`📭 No active devices found for User (${user.userID})`);
       return res.status(OK).json({
         success: true,
@@ -274,24 +285,21 @@ const getUserActiveDevicesForAdmin = async (req, res) => {
       });
     }
 
-    // 🧾 Sort by lastUsedAt descending
-    const sortedDevices = user.devices.info.sort((a, b) => new Date(b.lastUsedAt) - new Date(a.lastUsedAt));
-
     const reason = req.query.reason;
 
     // 📝 Log event
-    await logAuthEvent(req, "GET_USER_ACTIVE_DEVICES", {
+    await logAuthEvent(req, authLogEvents.GET_USER_ACTIVE_DEVICES , {
       performedOn: user,
       adminAction: { reason: reason, targetUserID: user.userID }
     });
 
-    logWithTime(`👁️ Admin (${req.user.userID}) viewed ${sortedDevices.length} active devices of User (${user.userID})`);
+    logWithTime(`👁️ Admin (${req.user.userID}) viewed active device of User (${user.userID})`);
 
     return res.status(OK).json({
       success: true,
       message: `Fetched active device sessions of User (${user.userID})`,
-      total: sortedDevices.length,
-      devices: sortedDevices
+      total: 1,
+      devices: [user.device]
     });
 
   } catch (err) {

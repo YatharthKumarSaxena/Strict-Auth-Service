@@ -3,7 +3,6 @@ const { errorMessage, throwInternalServerError, throwResourceNotFoundError, getL
 const { logWithTime } = require("../utils/time-stamps.utils");
 const prisma = require("../clients/public.prisma");
 const prismaPrivate = require("../clients/private.prisma");
-const DeviceRateLimit = require("../models/device-rate-limit.model");
 const { TOO_MANY_REQUESTS, NOT_FOUND } = require("../configs/http-status.config");
 
 /* Factory Design Pattern is used here to create rate limiters based on Different APIs*/
