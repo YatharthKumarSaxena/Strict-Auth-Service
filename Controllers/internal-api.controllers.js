@@ -1,7 +1,7 @@
 // controllers/internal-api.controllers.js
 
 const { logWithTime } = require("../utils/time-stamps.utils");
-const { setRefreshTokenCookie } = require("../utils/cookie-manager.utils");
+const { setAccessTokenCookie } = require("../utils/cookie-manager.utils");
 const { throwInternalServerError, errorMessage, throwInvalidResourceError, throwResourceNotFoundError, getLogIdentifiers } =  require("../configs/error-handler.configs");
 const { emailRegex, nameRegex, countryCodeRegex, numberRegex} = require("../configs/regex.config");
 const { logAuthEvent } = require("../utils/auth-log-utils");
@@ -9,7 +9,8 @@ const { OK } = require("../configs/http-status.config");
 const { validateLength, isValidRegex } = require("../utils/field-validators");
 const { createFullPhoneNumber,  checkAndAbortIfUserExists } = require("../utils/auth.utils");
 const { nameLength, emailLength, countryCodeLength, phoneNumberLength} = require("../configs/fields-length.config");
-const UserModel = require("../models/user.model");
+const prisma = require("../clients/public.prisma");
+const authLogEvents = require("../configs/auth-log-events.config");
 
 const updateUserProfile = async(req,res) => {
     try{
@@ -26,7 +27,10 @@ const updateUserProfile = async(req,res) => {
               return throwInvalidResourceError(res,"Name. Name can only include letters, spaces, apostrophes ('), periods (.), and hyphens (-).");
             }
             updatedFields.push("Name");
-            user.name = name;
+            await prisma.user.update({
+              where: {userID: user.userID},
+              data: {name: name}
+            });
         }
         if(req.body.emailID && req.body.emailID.trim().toLowerCase() !== user.emailID.trim().toLowerCase()){
             const emailID = req.body.emailID.trim().toLowerCase();
@@ -42,10 +46,13 @@ const updateUserProfile = async(req,res) => {
             const userExist = await checkAndAbortIfUserExists(emailID,user.fullPhoneNumber,res);
             if(userExist)return;
             updatedFields.push("Email ID");
-            user.emailID = emailID;
+            await prisma.user.update({
+              where: {userID: user.userID},
+              data: {emailID: emailID}
+            });
         }
         const phoneNumber = req.body.phoneNumber;
-        if(phoneNumber && phoneNumber !== user.phoneNumber){
+        if (phoneNumber && (phoneNumber.countryCode !== user.phoneNumber?.countryCode || phoneNumber.number !== user.phoneNumber?.number)){
           let { countryCode,number } = phoneNumber;
           if(countryCode && countryCode.trim() !== user.phoneNumber.countryCode){
             countryCode = countryCode.trim();
@@ -61,7 +68,12 @@ const updateUserProfile = async(req,res) => {
               );
             }
             updatedFields.push("Country Code in Phone Number");
-            user.phoneNumber.countryCode = countryCode;
+            await prisma.phoneNumber.update({
+              where: {userID: user.userID},
+              data: {
+                countryCode: countryCode
+              }
+            });
           }
           if(number && number.trim() !== user.phoneNumber.number){ 
             number = number.trim();
@@ -77,9 +89,14 @@ const updateUserProfile = async(req,res) => {
               );
             }
             updatedFields.push("Number in Phone Number");
-            user.phoneNumber.number = number;
+            await prisma.phoneNumber.update({
+              where: {userID: user.userID},
+              data: {
+                number: number
+              }
+            });
           }
-          if(!(!number || !countryCode)){
+          if(countryCode || number){
             if(!number)number = user.phoneNumber.number;
             if(!countryCode)countryCode = user.phoneNumber.countryCode;
             const newNumber = createFullPhoneNumber(req,res);
@@ -87,7 +104,10 @@ const updateUserProfile = async(req,res) => {
             // Checking User already exists or not 
             const userExist = await checkAndAbortIfUserExists(user.emailID,newNumber,res);
             if(userExist)return;
-            user.fullPhoneNumber = newNumber;
+            await prisma.user.update({
+              where: {userID: user.userID},
+              data: {fullPhoneNumber: newNumber}
+            });
           }
         }
         if(updatedFields.length === 0){
@@ -96,9 +116,8 @@ const updateUserProfile = async(req,res) => {
                 message: "No changes detected. Your profile remains the same."
             });
         }
-        await user.save();
         // Update data into auth.logs
-        await logAuthEvent(req, "UPDATE_ACCOUNT_DETAILS", null);
+        await logAuthEvent(req, authLogEvents.UPDATE_ACCOUNT_DETAILS , null);
         logWithTime(`✅ User (${user.userID}) updated fields: [${updatedFields.join(", ")}] from device: (${req.deviceID})`);
         return res.status(OK).json({
             success: true,
@@ -113,29 +132,29 @@ const updateUserProfile = async(req,res) => {
     }
 }
 
-const setRefreshCookieForAdmin = async (req, res) => {
+const setAccessTokenInCookieForAdmin = async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    const { accessToken } = req.body;
     const user = req.user;
-    if (!refreshToken) {
-      return throwResourceNotFoundError(res,"Refresh Token");
+    if (!accessToken) {
+      return throwResourceNotFoundError(res,"Access Token");
     }
 
-    const isCookieSet = setRefreshTokenCookie(res, refreshToken);
+    const isCookieSet = setAccessTokenCookie(res, accessToken);
     if(!isCookieSet){
-      logWithTime(`❌ An Internal Error Occurred in setting refresh token for user (${user.userID}) at the time of set up admin cookie internal api. Request is made from device ID: (${req.deviceID})`);
+      logWithTime(`❌ An Internal Error Occurred in setting Access token for user (${user.userID}) at the time of set up admin cookie internal api. Request is made from device ID: (${req.deviceID})`);
       return;
     }
 
     // Update data into auth.logs
-    await logAuthEvent(req, "SET_REFRESH_TOKEN_FOR_ADMIN", null);
+    await logAuthEvent(req, authLogEvents.SET_ACCESS_TOKEN_FOR_ADMIN, null);
 
     return res.status(OK).json({
       success: true,
-      message: "✅ Admin refresh token set in cookie successfully."
+      message: "✅ Admin access token set in cookie successfully."
     });
   } catch (err) {
-    logWithTime("💥 Error while setting admin refresh cookie");
+    logWithTime("💥 Error while setting admin access token cookie");
     errorMessage(err);
     return throwInternalServerError(res);
   }
@@ -144,14 +163,14 @@ const setRefreshCookieForAdmin = async (req, res) => {
 // 📦 Controller to Get Total Registered Users (Admins + Customers)
 const getTotalRegisteredUsers = async (req, res) => {
   try {
-    const totalUsers = await UserModel.countDocuments({});
-    const totalAdmins = await UserModel.countDocuments({ userType: "ADMIN" });
+    const totalUsers = await prisma.user.count();
+    const totalAdmins = await prisma.user.count({where:{ userType: "ADMIN" }});
     const totalCustomers = totalUsers - totalAdmins;
 
     logWithTime(`📊 Total Users: ${totalUsers}, Admins: ${totalAdmins}, Customers: ${totalCustomers}`);
         
     // Update data into auth.logs
-    await logAuthEvent(req, "GET_TOTAL_REGISTERED_USERS", null);
+    await logAuthEvent(req, authLogEvents.GET_TOTAL_REGISTERED_USERS , null);
 
     return res.status(OK).json({
       success: true,
@@ -172,5 +191,5 @@ const getTotalRegisteredUsers = async (req, res) => {
 module.exports = {
     updateUserProfile: updateUserProfile,
     getTotalRegisteredUsers: getTotalRegisteredUsers,
-    setRefreshCookieForAdmin: setRefreshCookieForAdmin
+    setAccessTokenInCookieForAdmin: setAccessTokenInCookieForAdmin
 }
