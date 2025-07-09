@@ -1,13 +1,17 @@
-const RateLimitStoreModel = require("../models/rate-limit.model");
+const prismaPrivate = require("../clients/private.prisma");
 
 // Default values — tune them as needed
 const REQUEST_LIMIT = 5;
 const TIME_WINDOW_MS = 60 * 1000; // 1 minute
 
 exports.getRateLimitMeta = async (deviceID, routeKey) => {
-    const record = await RateLimitStoreModel.findOne({ deviceID, routeKey });
+    const record = await prismaPrivate.rateLimit.findUnique({
+        where: {
+            deviceID_routeKey: { deviceID, routeKey }
+        }
+    });
     if (record) return record;
-    return { requestCount: 0, lastRequestAt: 0 };
+    return { requestCount: 0, lastRequestAt: new Date(0) };
 };
 
 exports.shouldBlockRequest = (requestCount, lastRequestAt) => {
@@ -19,13 +23,20 @@ exports.shouldBlockRequest = (requestCount, lastRequestAt) => {
 };
 
 exports.incrementRateLimitCount = async (deviceID, routeKey) => {
-    const now = Date.now();
-    await RateLimitStoreModel.findOneAndUpdate(
-        { deviceID, routeKey },
-        {
-            $inc: { requestCount: 1 },
-            $set: { lastRequestAt: now },
+    const now = new Date();
+    await prismaPrivate.rateLimit.upsert({
+        where: {
+            deviceID_routeKey: { deviceID, routeKey }
         },
-        { upsert: true }
-    );
+        update: {
+            requestCount: { increment: 1 },
+            lastRequestAt: now
+        },
+        create: {
+            deviceID,
+            routeKey,
+            requestCount: 1,
+            lastRequestAt: now
+        }
+    });
 };
