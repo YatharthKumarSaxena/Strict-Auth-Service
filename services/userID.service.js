@@ -1,4 +1,4 @@
-const CounterModel = require("../models/id-generator.model");
+const prismaPrivate = require("../clients/private.prisma");
 const { IP_Address_Code,userRegistrationCapacity,adminUserID } = require("../configs/user-id.config");
 const { customerIDPrefix } = require("../configs/id-prefixes.config");
 const { errorMessage,throwInternalServerError } = require("../configs/error-handler.configs");
@@ -15,11 +15,12 @@ const { logWithTime } = require("../utils/time-stamps.utils");
 
 const increaseCustomerCounter = async (res) => {
     try {
-        const customerCounter = await CounterModel.findOneAndUpdate(
-            { _id: customerIDPrefix },
-            { $inc: { seq: 1 } },
-            { new: true }
-        );
+        const customerCounter = await prismaPrivate.counter.update({
+            where: {id : customerIDPrefix},
+            data: {
+                seq: { increment: 1 }
+            }
+        });
         return customerCounter.seq;
     } catch (err) {
         logWithTime("🛑 Error in increasing customer counter");
@@ -39,9 +40,11 @@ const increaseCustomerCounter = async (res) => {
 
 const createCustomerCounter = async (res) => {
     try {
-        return await CounterModel.create({
-            _id: customerIDPrefix,
-            seq: 1
+        return await prismaPrivate.counter.create({
+            data:{
+                id: customerIDPrefix,
+                seq: 1
+            }
         });
     } catch (err) {
         logWithTime("⚠️ Error creating customer counter");
@@ -71,7 +74,9 @@ const makeUserID = async(res) => {
     let totalCustomers = 1; // By default as Admin User Already Exists 
     let customerCounter; // To remove Scope Resolution Issue
     try{
-        customerCounter = await CounterModel.findOne({_id: customerIDPrefix});
+        customerCounter = await prismaPrivate.counter.findUnique({
+            where: { id: customerIDPrefix }
+        });
     }catch(err){
         logWithTime("⚠️ An Error Occured while accessing the Customer Counter Document");
         errorMessage(err);
@@ -96,7 +101,7 @@ const makeUserID = async(res) => {
     else{
         newID = newID+adminUserID;
         let machineCode = IP_Address_Code;
-        let identityCode = customerCounter._id+machineCode;
+        let identityCode = customerCounter.id+machineCode;
         let idNumber = String(newID);
         const userID = identityCode+idNumber;
         return userID;
