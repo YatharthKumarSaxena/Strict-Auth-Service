@@ -1,6 +1,6 @@
 // Extracting required Modules, their functions and values
 const { throwInvalidResourceError, throwResourceNotFoundError, throwInternalServerError, errorMessage, logMiddlewareError, getLogIdentifiers } = require("../configs/error-handler.configs");
-const UserModel = require("../models/user.model");
+const prisma = require("../clients/public.prisma");
 const { logWithTime } = require("../utils/time-stamps.utils");
 
 const fetchUser = async(req,res) =>{
@@ -9,35 +9,47 @@ const fetchUser = async(req,res) =>{
         let verifyWith = "";
         let anyResourcePresent = true;
         if(req?.query?.userID){
-            user = await UserModel.findOne({userID: req.query.userID.trim()});
+            user = await prisma.user.findUnique({
+                where: {userID: req.query.userID.trim()}
+            });
             if(user){
                 verifyWith = verifyWith+"USER_ID";
             }
         }
         else if (req?.query?.emailID){
-            user = await UserModel.findOne({emailID: req.query.emailID.trim().toLowerCase()});
+            user = await prisma.user.findUnique({
+                where: {emailID: req.query.emailID.trim().toLowerCase()}
+            });
             if(user){
                 verifyWith = verifyWith+"EMAIL";
             }
         }
         else if (req?.query?.fullPhoneNumber){
-            user = await UserModel.findOne({fullPhoneNumber: req.query.fullPhoneNumber.trim()});
+            user = await prisma.user.findUnique({
+                where: {fullPhoneNumber: req.query.fullPhoneNumber.trim()}
+            });
             if(user){
                 verifyWith = verifyWith+"PHONE";
             }
         }
         else if(req?.body?.userID){
-            user = await UserModel.findOne({userID: req.body.userID.trim()});
+            user = await prisma.user.findUnique({
+                where: {userID: req.body.userID.trim()}
+            });
             if(user){
                 verifyWith = verifyWith+"USER_ID";
             }
         }else if(req?.body?.emailID){
-            user = await UserModel.findOne({emailID: req.body.emailID.trim().toLowerCase()});
+            user = await prisma.user.findUnique({
+                where: {emailID: req.body.emailID.trim().toLowerCase()}
+            });
             if(user){
                 verifyWith = verifyWith+"EMAIL";
             }
         }else if(req?.body?.fullPhoneNumber){
-            user = await UserModel.findOne({fullPhoneNumber: req.body.fullPhoneNumber.trim()});
+            user = await prisma.user.findUnique({
+                where: {fullPhoneNumber: req.body.fullPhoneNumber.trim()}
+            });
             if(user){
                 verifyWith = verifyWith+"PHONE";
             }

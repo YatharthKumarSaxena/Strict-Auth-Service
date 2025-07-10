@@ -16,10 +16,9 @@ const { checkPasswordIsValid, createFullPhoneNumber,  checkAndAbortIfUserExists 
 const { signInWithToken } = require("../services/token.service");
 const { makeUserID } = require("../services/userID.service");
 const { createDevice, getDeviceByID, checkDeviceThreshold, checkUserDeviceLimit } = require("../utils/device.utils");
-const { setAccessTokenHeaders } = require("../utils/token-headers.utils");
 const { logAuthEvent } =require("../utils/auth-log-utils");
 const { setAccessTokenCookie, clearAccessTokenCookie } = require("../utils/cookie-manager.utils");
-const { CREATED, BAD_REQUEST, INSUFFICIENT_STORAGE, INTERNAL_ERROR, OK } = require("../configs/http-status.config");
+const { CREATED, INSUFFICIENT_STORAGE, INTERNAL_ERROR, OK } = require("../configs/http-status.config");
 const authLogEvents = require("../configs/auth-log-events.config");
 const prisma = require("../clients/public.prisma")
 
