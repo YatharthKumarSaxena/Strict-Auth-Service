@@ -33,6 +33,14 @@ module.exports = {
       maxRequests: 3,              // Match with block policy
       windowMs: 30 * 60 * 1000     // every 30 minutes
     },
+    blockDevice: {
+      maxRequests: 2,              // Prevent misuse
+      windowMs: 30 * 60 * 1000     // every 30 minutes
+    },
+    unblockDevice: {
+      maxRequests: 2,              // Match with block policy
+      windowMs: 30 * 60 * 1000     // every 30 minutes
+    },
     changePassword: {
       maxRequests: 2,              // Highly sensitive
       windowMs: 60 * 60 * 1000     // every 1 hour

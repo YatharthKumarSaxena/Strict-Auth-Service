@@ -16,7 +16,8 @@ const bodyParser = express.json();  // Converts the JSON Object Requests into Ja
 
 const {
   BLOCK_USER, UNBLOCK_USER,
-  GET_USER_ACTIVE_SESSIONS, FETCH_USER_DETAILS
+  GET_USER_ACTIVE_SESSIONS, FETCH_USER_DETAILS,
+  BLOCK_DEVICE, UNBLOCK_DEVICE
 } = URIS.ADMIN_ROUTES.USERS;
 
 const { GET_TOTAL_REGISTERED_USERS, GET_USER_AUTH_LOGS } = URIS.ADMIN_ROUTES.STATISTICS;
@@ -64,6 +65,50 @@ router.patch(UNBLOCK_USER, [
   commonUsedMiddleware.isAdmin,
   commonUsedMiddleware.checkUserIsVerified
 ], adminController.unblockUserAccount);
+
+// 🚫 Admin Only: Block Device
+// 🔒 Middleware:
+// - Check whether Device provided or not
+// - Check that device is blocked or not
+// - Validates Access token or generate it if Expired
+// - Rate Limiter to prevent Server Crash from Heavy API Attacks
+// - Verifies admin identity from request body
+// - Confirms requester is an admin
+// - Ensures admin is verified
+// 📌 Controller:
+// - Blocks Another Device
+router.patch(BLOCK_DEVICE, [
+  bodyParser,
+  commonUsedMiddleware.verifyDeviceField,
+  commonUsedMiddleware.checkDeviceIsNotBlocked,
+  commonUsedMiddleware.verifyToken,
+  generalLimiter.blockDeviceRateLimiter,
+  adminMiddleware.verifyAdminBlockUnblockBody,
+  commonUsedMiddleware.isAdmin,
+  commonUsedMiddleware.checkUserIsVerified
+], adminController.blockDevice);
+
+// ✅ Admin Only: Unblock Device
+// 🔒 Middleware: (same as block device)
+// - Check whether Device provided or not
+// - Check that device is blocked or not
+// - Validates Access token or generate it if Expired
+// - Rate Limiter to prevent Server Crash from Heavy API Attacks
+// - Check whether provided request body is valid
+// - Ensures only authorized verified admins can unblock users
+// - Checks Admin is verified
+// 📌 Controller:
+// - Unblocks the specified device
+router.patch(UNBLOCK_DEVICE, [
+  bodyParser,
+  commonUsedMiddleware.verifyDeviceField,
+  commonUsedMiddleware.checkDeviceIsNotBlocked,
+  commonUsedMiddleware.verifyToken,
+  generalLimiter.unblockDeviceRateLimiter,
+  adminMiddleware.verifyAdminBlockUnblockBody,
+  commonUsedMiddleware.isAdmin,
+  commonUsedMiddleware.checkUserIsVerified
+], adminController.unblockDevice);
 
 // ✅ Admin Only: Check any user auth logs based on filter 
 // 🔒 Middleware:

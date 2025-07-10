@@ -47,7 +47,9 @@ module.exports = {
             BLOCK_USER: `/block-user`,              // PATCH /custom-auth-service/api/v1/admin/block-user
             UNBLOCK_USER: `/unblock-user`,          // PATCH /custom-auth-service/api/v1/admin/unblock-user
             GET_USER_ACTIVE_SESSIONS: `/active-sessions`,   // GET /custom-auth-service/api/v1/admin/active-sessions
-            FETCH_USER_DETAILS: `/fetch-user-details`       // GET /custom-auth-service/api/v1/admin/fetch-user-details 
+            FETCH_USER_DETAILS: `/fetch-user-details`,      // GET /custom-auth-service/api/v1/admin/fetch-user-details 
+            BLOCK_DEVICE: `/block-device`,              // PATCH /custom-auth-service/api/v1/admin/block-device
+            UNBLOCK_DEVICE: `/unblock-device`           // PATCH /custom-auth-service/api/v1/admin/unblock-device          
         },
         STATISTICS: {
             GET_TOTAL_REGISTERED_USERS: "/stats/total-users", // GET /custom-auth-service/api/v1/admin/stats/total-users
