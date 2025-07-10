@@ -13,7 +13,7 @@ const { PORT_NUMBER } = require("./configs/server.config");
 const prisma = require("./clients/public.prisma");
 const app = express(); // App is an Express Function
 const authLogEvents = require("./configs/auth-log-events.config");
-const { adminUser } = require("./configs/admin-user.config");
+const getAdminUserObject = require("./configs/admin-user.config");
 const { expiryTimeOfAccessToken } = require("./configs/security.config")
 const {errorMessage} = require("./configs/error-handler.configs");
 const { logWithTime } = require("./utils/time-stamps.utils");
@@ -42,6 +42,7 @@ async function init(){ // To use await we need to make function Asynchronous
         }
         else{ // Since findOne returns null when no user found this statement will execute if no Admin User exists
             try{
+                const adminUser = await getAdminUserObject(); 
                 const user = await prisma.user.create({
                     data: adminUser
                 });
@@ -150,7 +151,7 @@ app.use((req, res) => {
 app.use(malformedJsonHandler);
 
 // 🔹 Global Error Handler (must be last middleware)
-app.use(globalErrorHandler);
+// app.use(globalErrorHandler);
 
 // 🔹 Initializing Server by Express
 app.listen(PORT_NUMBER,()=>{
