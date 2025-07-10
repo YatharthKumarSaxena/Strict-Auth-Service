@@ -27,7 +27,7 @@ async function createAdminUserIfNotExists() {
             number: process.env.ADMIN_NUMBER
         }
       },
-      password: await bcryptjs.hash(process.env.ADMIN_PASSWORD, SALT),
+      password: process.env.ADMIN_PASSWORD,
       emailID: process.env.ADMIN_EMAIL_ID,
       userType: "ADMIN",
       userID: adminID,
