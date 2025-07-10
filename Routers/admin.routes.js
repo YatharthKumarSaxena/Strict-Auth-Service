@@ -23,7 +23,6 @@ const { GET_TOTAL_REGISTERED_USERS, GET_USER_AUTH_LOGS } = URIS.ADMIN_ROUTES.STA
 // 🚫 Admin Only: Block User Account
 // 🔒 Middleware:
 // - Check whether Device provided or not
-// - Validates that Refresh Token Provided or not and is Valid and Access Token is Present or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Verifies admin identity from request body
@@ -34,7 +33,6 @@ const { GET_TOTAL_REGISTERED_USERS, GET_USER_AUTH_LOGS } = URIS.ADMIN_ROUTES.STA
 router.patch(BLOCK_USER, [
   bodyParser,
   commonUsedMiddleware.verifyDeviceField,
-  commonUsedMiddleware.verifyTokenOwnership,
   commonUsedMiddleware.verifyToken,
   generalLimiter.blockAccountRateLimiter,
   adminMiddleware.verifyAdminBlockUnblockBody,
@@ -45,7 +43,6 @@ router.patch(BLOCK_USER, [
 // ✅ Admin Only: Unblock User Account
 // 🔒 Middleware: (same as block user)
 // - Check whether Device provided or not
-// - Validates that Refresh Token Provided or not and is Valid and Access Token is Present or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Check whether provided request body is valid
@@ -56,7 +53,6 @@ router.patch(BLOCK_USER, [
 router.patch(UNBLOCK_USER, [
   bodyParser,
   commonUsedMiddleware.verifyDeviceField,
-  commonUsedMiddleware.verifyTokenOwnership,
   commonUsedMiddleware.verifyToken,
   generalLimiter.unblockAccountRateLimiter,
   adminMiddleware.verifyAdminBlockUnblockBody,
@@ -67,7 +63,6 @@ router.patch(UNBLOCK_USER, [
 // ✅ Admin Only: Check any user auth logs based on filter 
 // 🔒 Middleware:
 // - Check whether Device provided or not
-// - Validates that Refresh Token Provided or not and is Valid and Access Token is Present or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Confirms that provided user is Admin or not
@@ -78,7 +73,6 @@ router.patch(UNBLOCK_USER, [
 router.post(GET_USER_AUTH_LOGS, [
   bodyParser,
   commonUsedMiddleware.verifyDeviceField,
-  commonUsedMiddleware.verifyTokenOwnership,
   commonUsedMiddleware.verifyToken,
   generalLimiter.getUserAuthLogsRateLimiter,
   commonUsedMiddleware.isAdmin,
@@ -88,7 +82,6 @@ router.post(GET_USER_AUTH_LOGS, [
 // 🛡️ Admin Only: Get Any User's Account Details
 // 🔒 Middleware:
 // - Check whether Device provided or not
-// - Validates that Refresh Token Provided or not and is Valid and Access Token is Present or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Confirms the requester is an admin (role check)
@@ -99,7 +92,6 @@ router.post(GET_USER_AUTH_LOGS, [
 // - Returns full account details of the target user (based on userId provided in query/body)
 router.get(FETCH_USER_DETAILS, [
   commonUsedMiddleware.verifyDeviceField,
-  commonUsedMiddleware.verifyTokenOwnership,
   commonUsedMiddleware.verifyToken,
   generalLimiter.checkUserAccountDetailsRateLimiter,
   commonUsedMiddleware.isAdmin,
@@ -110,7 +102,6 @@ router.get(FETCH_USER_DETAILS, [
 // 🛡️ Admin Only: Provide details of devices of user to admin where he/she is logged in
 // 🔒 Middleware:
 // - Check whether Device provided or not
-// - Validates that Refresh Token Provided or not and is Valid and Access Token is Present or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Confirms the requester is an admin (role check)
@@ -120,7 +111,6 @@ router.get(FETCH_USER_DETAILS, [
 // - Provide the user list of active sessions
 router.get(GET_USER_ACTIVE_SESSIONS, [
   commonUsedMiddleware.verifyDeviceField,
-  commonUsedMiddleware.verifyTokenOwnership,
   commonUsedMiddleware.verifyToken,
   generalLimiter.checkUserDeviceSessionsRateLimiter,
   commonUsedMiddleware.isAdmin,
@@ -131,7 +121,6 @@ router.get(GET_USER_ACTIVE_SESSIONS, [
 // 🛡️ Admin Only: Provide details of devices of user to admin where he/she is logged in
 // 🔒 Middleware:
 // - Check whether Device provided or not
-// - Validates that Refresh Token Provided or not and is Valid and Access Token is Present or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Confirms the requester is an admin (role check)
@@ -140,7 +129,6 @@ router.get(GET_USER_ACTIVE_SESSIONS, [
 // - Provide the total number of registered users and type of users count
 router.get(GET_TOTAL_REGISTERED_USERS, [
   commonUsedMiddleware.verifyDeviceField,
-  commonUsedMiddleware.verifyTokenOwnership,
   commonUsedMiddleware.verifyToken,
   commonUsedMiddleware.isAdmin,
   commonUsedMiddleware.checkUserIsVerified

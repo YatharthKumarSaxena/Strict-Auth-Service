@@ -51,7 +51,6 @@ router.post(SIGNIN, [
 // 🔓 Public User Forced Signout Route: Sign Out User From All Devices
 // 🔒 Middleware:
 // - Check whether Device provided or not
-// - Validates that Refresh Token Provided or not and is Valid and Access Token is Present or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Validates signout body
@@ -60,29 +59,10 @@ router.post(SIGNIN, [
 router.post(SIGNOUT, [
   bodyParser,
   commonUsedMiddleware.verifyDeviceField,
-  commonUsedMiddleware.verifyTokenOwnership,
   commonUsedMiddleware.verifyToken,
   generalLimiter.signOutRateLimiter,
   authMiddleware.verifySignOutBody
 ], authController.signOut);
-
-// 🔓 Public User Signout Route: Sign Out User From Specific Devices (Current Device)
-// 🔒 Middleware:
-// - Check whether Device provided or not
-// - Validates that Refresh Token Provided or not and is Valid and Access Token is Present or not
-// - Validates Access token or generate it if Expired
-// - Rate Limiter to prevent Server Crash from Heavy API Attacks
-// - Check User is already logged out
-// 📌 Controller:
-// - Logs user out by invalidating session/token from Specific Device
-router.post(SIGNOUT_FROM_SPECIFIC_DEVICE, [
-  bodyParser,
-  commonUsedMiddleware.verifyDeviceField,
-  commonUsedMiddleware.verifyTokenOwnership,
-  commonUsedMiddleware.verifyToken,
-  generalLimiter.signOutRateLimiter,
-  authMiddleware.verifySignOutBody
-], authController.signOutFromSpecificDevice);
 
 // ✅ Public User: Activate Own Account
 // 🔒 Middleware:
@@ -103,7 +83,6 @@ router.patch(ACTIVATE_USER, [
 // 🚫 Public User: Deactivate Own Account
 // 🔒 Middleware:
 // - Check whether Device provided or not
-// - Validates that Refresh Token Provided or not and is Valid and Access Token is Present or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Confirms user is not blocked
@@ -114,7 +93,6 @@ router.patch(ACTIVATE_USER, [
 router.patch(DEACTIVATE_USER, [
   bodyParser,
   commonUsedMiddleware.verifyDeviceField,
-  commonUsedMiddleware.verifyTokenOwnership,
   commonUsedMiddleware.verifyToken,
   generalLimiter.deactivateAccountRateLimiter,
   authMiddleware.verifyDeactivateUserAccountBody,
@@ -126,7 +104,6 @@ router.patch(DEACTIVATE_USER, [
 // 👤 Authenticated User: Change their own Password
 // 🔒 Middleware:
 // - Check whether Device provided or not
-// - Validates that Refresh Token Provided or not and is Valid and Access Token is Present or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Confirms user is not blocked (e.g. by admin)
@@ -139,7 +116,6 @@ router.patch(DEACTIVATE_USER, [
 router.patch(CHANGE_PASSWORD, [
   bodyParser,
   commonUsedMiddleware.verifyDeviceField,
-  commonUsedMiddleware.verifyTokenOwnership,
   commonUsedMiddleware.verifyToken,
   generalLimiter.changePasswordRateLimiter,
   authMiddleware.verifyChangePasswordBody,
@@ -151,7 +127,6 @@ router.patch(CHANGE_PASSWORD, [
 // 👤 Authenticated User: Provide details of devices to user where he/she is logged in
 // 🔒 Middleware:
 // - Check whether Device provided or not
-// - Validates that Refresh Token Provided or not and is Valid and Access Token is Present or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Confirms user is not blocked (e.g. by admin)
@@ -161,7 +136,6 @@ router.patch(CHANGE_PASSWORD, [
 // - Provide the user list of active sessions
 router.get(CHECK_ACTIVE_SESSIONS, [
   commonUsedMiddleware.verifyDeviceField,
-  commonUsedMiddleware.verifyTokenOwnership,
   commonUsedMiddleware.verifyToken,
   generalLimiter.getActiveDevicesRateLimiter,
   commonUsedMiddleware.isUserBlocked,

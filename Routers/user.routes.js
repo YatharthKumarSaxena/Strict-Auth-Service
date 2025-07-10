@@ -17,7 +17,6 @@ const { FETCH_MY_PROFILE,UPDATE_PROFILE } = URIS.USER_ROUTES;
 // 📄 Public User: Get Own Account Details
 // 🔒 Middleware:
 // - Check whether Device provided or not
-// - Validates that Refresh Token Provided or not and is Valid and Access Token is Present or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Confirms user is not blocked
@@ -27,7 +26,6 @@ const { FETCH_MY_PROFILE,UPDATE_PROFILE } = URIS.USER_ROUTES;
 // - Returns full account details of the logged-in user
 router.get(FETCH_MY_PROFILE, [
     commonUsedMiddleware.verifyDeviceField,
-    commonUsedMiddleware.verifyTokenOwnership,
     commonUsedMiddleware.verifyToken,
     generalLimiter.checkMyAccountDetailsRateLimiter,
     commonUsedMiddleware.isUserBlocked,
@@ -51,7 +49,6 @@ router.get(FETCH_MY_PROFILE, [
 router.patch(UPDATE_PROFILE,[
     bodyParser,
     commonUsedMiddleware.verifyDeviceField,
-    commonUsedMiddleware.verifyTokenOwnership,
     commonUsedMiddleware.verifyToken,
     generalLimiter.updateUserAccountRateLimiter,
     commonUsedMiddleware.isUserBlocked,
