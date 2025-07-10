@@ -42,7 +42,7 @@ enum UnblockReason {
 }
 
 model User {
-  id                String         @id @default(uuid())  // 👈 Primary UUID for internal reference
+  id                String         @id @default(uuid()) // 👈 Primary UUID for internal reference
   name              String?
   fullPhoneNumber   String         @unique
   password          String
@@ -77,10 +77,10 @@ model User {
 }
 
 model PhoneNumber {
-  userID      String     @id
+  userID      String @id
   countryCode String
   number      String
-  user        User       @relation(fields: [userID], references: [userID])
+  user        User   @relation(fields: [userID], references: [userID])
 }
 
 model Device {
@@ -95,11 +95,11 @@ model Device {
 }
 
 model OTP {
-  id          Int        @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   code        String
   expiresAt   DateTime
-  verified    Boolean    @default(false)
-  resendCount Int        @default(0)
-  userID      String     @unique
-  user        User       @relation(fields: [userID], references: [userID])
+  verified    Boolean  @default(false)
+  resendCount Int      @default(0)
+  userID      String   @unique
+  user        User     @relation(fields: [userID], references: [userID])
 }
