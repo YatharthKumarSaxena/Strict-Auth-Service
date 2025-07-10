@@ -1,7 +1,6 @@
 // Extract the required Module
 const jwt = require("jsonwebtoken");
-const {secretCodeOfAccessToken} = require("../configs/admin-user.config");
-const {expiryTimeOfAccessToken} = require("../configs/token-expiry.config");
+const {expiryTimeOfAccessToken,secretCodeOfAccessToken} = require("../configs/security.config");
 const { logWithTime } = require("./time-stamps.utils");
 const { errorMessage, throwInternalServerError } = require("../configs/error-handler.configs");
 const { logAuthEvent, adminAuthLogForSetUp } = require("../utils/auth-log-utils");

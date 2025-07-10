@@ -15,6 +15,7 @@ const { checkUserIsNotVerified } = require("../controllers/auth.controllers");
 const { nameLength, passwordLength, countryCodeLength, emailLength, phoneNumberLength }  = require("../configs/fields-length.config");
 const { isValidRegex, validateLength } = require("../utils/field-validators");
 const { BAD_REQUEST, UNAUTHORIZED, FORBIDDEN } = require("../configs/http-status.config");
+
 const verifySignUpBody = async (req,res,next) =>{
     // Validating the User Request
     try{

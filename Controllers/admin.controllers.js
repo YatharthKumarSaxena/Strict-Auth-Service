@@ -4,7 +4,7 @@
 const prisma = require('../clients/public.prisma');   // ← user table lives in public DB
 const { throwInvalidResourceError, throwInternalServerError, errorMessage, throwAccessDeniedError } = require("../configs/error-handler.configs");
 const { logWithTime } = require("../utils/time-stamps.utils");
-const { adminID } = require("../configs/admin-user.config");
+const { adminID } = require("../configs/admin-id.config");
 const { BLOCK_REASONS, UNBLOCK_REASONS } = require("../configs/user-enums.config");
 const { fetchUser } = require("../middlewares/helper.middleware");
 const { isAdminID, validateSingleIdentifier } = require("../utils/auth.utils");

@@ -1,7 +1,7 @@
 // 📁 internal-calls/set-admin-refresh-cookie.internal.js
 
 const { logWithTime } = require("../utils/time-stamps.utils");
-const { setRefreshCookieForAdmin } = require("../controllers/internal-api.controllers");
+const { setAccessTokenInCookieForAdmin } = require("../controllers/internal-api.controllers");
 const { errorMessage } = require("../configs/error-handler.configs");
 
 /**
@@ -37,7 +37,7 @@ const callSetAdminRefreshCookie = async (user, refreshToken) => {
       headersSent: false
     };
 
-    await setRefreshCookieForAdmin(mockReq, mockRes);
+    await setAccessTokenInCookieForAdmin(mockReq, mockRes);
     logWithTime("✅ Internal Admin Cookie Setup Completed.");
     
   } catch (err) {

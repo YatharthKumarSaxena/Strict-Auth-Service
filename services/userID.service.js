@@ -1,5 +1,7 @@
 const prismaPrivate = require("../clients/private.prisma");
-const { IP_Address_Code,userRegistrationCapacity,adminUserID } = require("../configs/admin-user.config");
+const { IP_Address_Code } = require("../configs/ip-address.config");
+const { userRegistrationCapacity } = require("../configs/app-limits.config");
+const { adminUserID } = require("../configs/admin-id.config");
 const { customerIDPrefix } = require("../configs/id-prefixes.config");
 const { errorMessage,throwInternalServerError } = require("../configs/error-handler.configs");
 const { logWithTime } = require("../utils/time-stamps.utils");

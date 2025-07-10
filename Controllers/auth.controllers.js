@@ -7,11 +7,11 @@
 */
 
 // Extracting the required modules
-const { SALT, expiryTimeOfAccessToken} = require("../configs/admin-user.config");
+const { SALT, expiryTimeOfAccessToken} = require("../configs/security.config");
 const bcryptjs = require("bcryptjs")
 const { throwInvalidResourceError, errorMessage, throwInternalServerError, getLogIdentifiers, throwResourceNotFoundError } = require("../configs/error-handler.configs");
 const { logWithTime } = require("../utils/time-stamps.utils");
-const { makeTokenWithMongoID } = require("../utils/issue-token.utils");
+const { makeTokenWithPrismaID } = require("../utils/issue-token.utils");
 const { checkPasswordIsValid, createFullPhoneNumber,  checkAndAbortIfUserExists } = require("../utils/auth.utils");
 const { signInWithToken } = require("../services/token.service");
 const { makeUserID } = require("../services/userID.service");
@@ -221,7 +221,7 @@ const signUp = async (req,res) => { // Made this function async to use await
         const isThresholdCrossed = await checkDeviceThreshold(req.deviceID,res);
         if(isThresholdCrossed)return;
         // Refresh Token Generation
-        const accessToken = await makeTokenWithMongoID(req,res,expiryTimeOfAccessToken);
+        const accessToken = await makeTokenWithPrismaID(req,res);
         if(!accessToken){
             logWithTime(`❌ Access Token generation failed after successful registration for User (${user.userID})!. User registered from device id: (${req.deviceID})`);
             return res.status(INTERNAL_ERROR).json({
