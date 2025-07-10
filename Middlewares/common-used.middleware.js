@@ -258,6 +258,24 @@ const verifyDeviceField = async (req,res,next) => {
     }
 }
 
+const checkDeviceIsNotBlocked = async (req, res, next) => {
+  const deviceID = req.deviceID;
+  const blockedDevice = await prisma.deviceBlock.findUnique({ where: { deviceID } });
+
+  if (blockedDevice?.isBlocked) {
+    return res.status(403).json({
+      success: false,
+      message: "🚫 This device has been blocked by the administrator.",
+      blockedBy: blockedDevice.blockedBy,
+      blockedAt: blockedDevice.blockedAt,
+      reason: blockedDevice.reason,
+      code: "DEVICE_BLOCKED"
+    });
+  }
+
+  return next();
+};
+
 const verifySetAdminCookieBody = async(req,res,next) => {
     try{
         if(!req.body || Object.keys(req.body).length === 0){
@@ -300,5 +318,6 @@ module.exports = {
     isUserBlocked: isUserBlocked,
     isUserAccountActive: isUserAccountActive,
     verifyDeviceField: verifyDeviceField,
-    verifySetAdminCookieBody: verifySetAdminCookieBody
+    verifySetAdminCookieBody: verifySetAdminCookieBody,
+    checkDeviceIsNotBlocked: checkDeviceIsNotBlocked
 }
