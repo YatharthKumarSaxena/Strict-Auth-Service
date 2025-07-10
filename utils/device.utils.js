@@ -53,27 +53,34 @@ const checkDeviceThreshold = async (deviceID, res) => {
     }
 };
 
-const createDeviceField = (req,res) => {
-    try{
-        const device = {
+const createDevice = async (req, res) => {
+    try {
+        const deviceData = {
             deviceID: req.deviceID,
-            addedAt: Date.now(),
-            lastUsedAt: Date.now()
+            userID: req.user.userID,
+            addedAt: new Date(),
+            lastUsedAt: new Date(),
+            requestCount: 1,
         };
-        if(req.deviceName)device.deviceName = req.deviceName;
-        if(req.deviceType)device.deviceType = req.deviceType;
-        return device;
-    }catch(err){
-        logWithTime(`🛑 An Error Occured in making the Device Field during SignUp/SignIn for user having userID: (${req.body.userID})`)
+        if (req.deviceName) deviceData.deviceName = req.deviceName;
+        if (req.deviceType) deviceData.deviceType = req.deviceType;
+
+        const createdDevice = await prisma.device.create({
+            data: deviceData
+        });
+
+        return createdDevice;
+    } catch (err) {
+        logWithTime(`❌ Error occurred while creating Device for user (${req.user?.userID}) with device ID: (${req.deviceID})`);
         errorMessage(err);
         throwInternalServerError(res);
         return null;
     }
-}
+};
 
 module.exports = {
+    createDevice: createDevice,
     getDeviceByID: getDeviceByID,
-    createDeviceField: createDeviceField,
     checkUserDeviceLimit: checkUserDeviceLimit,
     checkDeviceThreshold: checkDeviceThreshold
 }

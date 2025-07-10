@@ -1,8 +1,7 @@
 module.exports = Object.freeze({
   // 🔐 Authentication Events
   LOGIN: "LOGIN",
-  LOGOUT_ALL_DEVICE: "LOGOUT_ALL_DEVICE",
-  LOGOUT_SPECIFIC_DEVICE: "LOGOUT_SPECIFIC_DEVICE",
+  LOGOUT: "LOGOUT",
   ACCESS_TOKEN: "ACCESS_TOKEN",
 
   // 👤 Account Management

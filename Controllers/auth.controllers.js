@@ -8,7 +8,6 @@
 
 // Extracting the required modules
 const { SALT, expiryTimeOfAccessToken} = require("../configs/user-id.config");
-const UserModel = require("../models/user.model");
 const bcryptjs = require("bcryptjs")
 const { throwInvalidResourceError, errorMessage, throwInternalServerError, getLogIdentifiers, throwResourceNotFoundError } = require("../configs/error-handler.configs");
 const { logWithTime } = require("../utils/time-stamps.utils");
@@ -16,7 +15,7 @@ const { makeTokenWithMongoID } = require("../utils/issue-token.utils");
 const { checkPasswordIsValid, createFullPhoneNumber,  checkAndAbortIfUserExists } = require("../utils/auth.utils");
 const { signInWithToken } = require("../services/token.service");
 const { makeUserID } = require("../services/userID.service");
-const { createDeviceField, getDeviceByID, checkDeviceThreshold, checkUserDeviceLimit } = require("../utils/device.utils");
+const { createDevice, getDeviceByID, checkDeviceThreshold, checkUserDeviceLimit } = require("../utils/device.utils");
 const { setAccessTokenHeaders } = require("../utils/token-headers.utils");
 const { logAuthEvent } =require("../utils/auth-log-utils");
 const { setAccessTokenCookie, clearAccessTokenCookie } = require("../utils/cookie-manager.utils");
@@ -152,11 +151,6 @@ const signUp = async (req,res) => { // Made this function async to use await
     const userExist = await checkAndAbortIfUserExists(emailID.trim().toLowerCase(), newNumber, res);
     if(userExist)return;
     const password = await bcryptjs.hash(request_body.password, SALT); // Password is Encrypted
-    const device = createDeviceField(req,res);
-    if(!device){
-        logWithTime(`❌ Device creation failed for User for device id: (${req.deviceID}) at the time of Sign Up Request`);
-        return throwInternalServerError(res);
-    }
 
     /* 2. Insert the Data in the Users Collection of Mongo DB ecomm_db Database */ 
     let generatedUserID; // To resolve Scope Resolution Issue
@@ -175,37 +169,44 @@ const signUp = async (req,res) => { // Made this function async to use await
     }
 
     const { countryCode,number } = request_body.phoneNumber;
-    const User = {
-        phoneNumber: {
-            countryCode: countryCode,
-            number: number
-        },
-        fullPhoneNumber: newNumber,
-        emailID: request_body.emailID,
-        password: password,
-        userID: generatedUserID,
-        devices:{
-            info: []
-        }
-    }
     if(request_body.name){
-        User.name = request_body.name;
+        user.name = request_body.name;
     }
     try{
-        const user = await UserModel.create(User);
+        const user = await prisma.user.create({
+            data: {
+                fullPhoneNumber: newNumber,
+                emailID: request_body.emailID,
+                password: password,
+                userID: generatedUserID,
+                name: request_body.name || undefined
+            }
+        });
+        logWithTime(`🟢 User (${user.userID}) Created Successfully`);
+        await prisma.phoneNumber.create({
+            data: {
+                userID: user.userID,
+                countryCode: countryCode,
+                number: number
+            }
+        });
+        logWithTime(`🟢 Phone Number (${user.fullPhoneNumber}) is linked successfully to User (${user.userID})`);
         req.user = user;
-        logWithTime(`🟢 User (${user.userID}) Created Successfully, Registration Successfull from device id: (${req.deviceID})`);
+        const device = await createDevice(req,res);
+        if(!device){
+            logWithTime(`❌ Device creation failed for User for device id: (${req.deviceID}) at the time of Sign Up Request`);
+            return throwInternalServerError(res);
+        }
+        logWithTime(`🟢 Device ID (${req.deviceID}) is linked successfully to User (${user.userID})`);
         const userGeneralDetails = {
             emailID: user.emailID,
             userID: user.userID,
             fullPhoneNumber: newNumber,
             userType: user.userType,
             createdAt: user.createdAt,
-            devices:{
-                info: []
-            }
+            device: device
         }
-        if(User.name)userGeneralDetails.name = request_body.name;
+        if(user.name)userGeneralDetails.name = request_body.name;
         // Update data into auth.logs
         await logAuthEvent(req, "REGISTER", null);
         const userDisplayDetails = {
@@ -214,46 +215,40 @@ const signUp = async (req,res) => { // Made this function async to use await
             emailId: user.emailID,
             phoneNumber: newNumber
         }
-        if(User.name)userDisplayDetails.name = request_body.name;
+        if(user.name)userDisplayDetails.name = request_body.name;
         logWithTime("👤 New User Details:- ");
         console.log(userGeneralDetails);
         // Before Automatic Login Just verify that device threshold has not exceeded
         const isThresholdCrossed = await checkDeviceThreshold(req.deviceID,res);
         if(isThresholdCrossed)return;
         // Refresh Token Generation
-        const refreshToken = await makeTokenWithMongoID(req,res,expiryTimeOfRefreshToken);
-        if(!refreshToken){
-            logWithTime(`❌ Refresh Token generation failed after successful registration for User (${user.userID})!. User registered from device id: (${req.deviceID})`);
+        const accessToken = await makeTokenWithMongoID(req,res,expiryTimeOfAccessToken);
+        if(!accessToken){
+            logWithTime(`❌ Access Token generation failed after successful registration for User (${user.userID})!. User registered from device id: (${req.deviceID})`);
             return res.status(INTERNAL_ERROR).json({
                 success: false,
                 message: "User registered but login (token generation) failed. Please try logging in manually.",
                 userDisplayDetails
             });
         }
-        const isCookieSet = setRefreshTokenCookie(res,refreshToken);
+        const isCookieSet = setAccessTokenCookie(res,accessToken);
         if(!isCookieSet){
-            logWithTime(`❌ An Internal Error Occurred in setting refresh token for user (${user.userID}) at the time of Registration. Request is made from device ID: (${req.deviceID})`);
+            logWithTime(`❌ An Internal Error Occurred in setting access token for user (${user.userID}) at the time of Registration. Request is made from device ID: (${req.deviceID})`);
             return;
         }
-        user.jwtTokenIssuedAt = Date.now();
-        await user.save();
-        const isUserLoggedIn = await loginTheUser(user,refreshToken,device,res);
+        await prisma.user.update({
+            where: { userID: user.userID },
+            data: {
+                jwtTokenIssuedAt: new Date()
+            }
+        });
+        const isUserLoggedIn = await loginTheUser(user,device,res);
         if(!isUserLoggedIn){
             logWithTime(`❌ An Internal Error Occurred in logging in the user (${user.userID}) at the time of Registration. Request is made from device ID: (${req.deviceID})`);
             return;
         }
         // Update data into auth.logs
-        await logAuthEvent(req, "LOGIN", null);
-        const accessToken = await makeTokenWithMongoID(req,res,expiryTimeOfAccessToken);
-        if(!accessToken){
-            logWithTime(`❌ Access token creation failed for User (${user.userID}) at the time of sign up request. Request is made from device id: (${req.deviceID})`);
-            return throwInternalServerError(res);
-        }
-        const isAccessTokenSet = setAccessTokenHeaders(res,accessToken);
-        if(!isAccessTokenSet){
-            logWithTime(`❌ Access token set in header failed for User (${user.userID}) at the time of sign up request. Request is made from device id: (${req.deviceID})`);
-            return throwInternalServerError(res);
-        }
+        await logAuthEvent(req, authLogEvents.LOGIN, null);
         logWithTime(`🟢 User (${user.userID}) is successfully logged in on registration from device id: (${req.deviceID})`);
     /* 3. Return the response back to the User */
         return res.status(CREATED).json({
@@ -274,66 +269,52 @@ const signIn = async (req,res) => {
         let user = req.foundUser;
         if(!user){
             const userID =  req?.foundUserID || req?.user?.userID || req?.body?.userID;
-            user = await UserModel.findOne({userID: userID});
+            user = await prisma.user.findUnique({
+                where:{userID: userID}
+            });
             if(!user){
-                return throwInvalidResourceError(res,"UserID");
+                return throwInvalidResourceError(res,"User");
             }
             req.foundUser = user;
         }
         user = req.foundUser;
+        req.user = user;
         // ✅ Now Check if User is Already Logged In
         await checkUserIsNotVerified(req,res);
-        let device = await getDeviceByID(user,req.deviceID);
-        req.foundUser = user;
-        if(device){
-            device.lastUsedAt = Date.now();
-            await user.save();
-            logWithTime(`⚠️ Access Denied: User with userID: ${user.userID} attempted to login on same device id ${req.deviceID}`);
-            return res.status(BAD_REQUEST).json({
-                success: false,
-                message: "User is already logged in.",
-                suggestion: "Please logout first before trying to login again."
-            });
-        };
         const isThresholdCrossed = (await checkDeviceThreshold(req.deviceID,res) || checkUserDeviceLimit(req,res));
         if(isThresholdCrossed)return;
-        device = createDeviceField(req,res);
-        if(!device){
-            logWithTime(`❌ Device creation failed for User ${user.userID} for device id: ${req.deviceID} at the time of Sign In Request`);
-            return throwInternalServerError(res);
-        }
         // Check Password is Correct or Not
         let isPasswordValid = await checkPasswordIsValid(req,user);
         if(isPasswordValid){ // Login the User
-            // Sign with JWT Token
-            const refreshToken = await signInWithToken(req,res);
-            if (refreshToken === "") {
-                logWithTime(`❌ Refresh token generation failed during login of User with userID: ${user.userID} from device id: ${req.deviceID}`);
+            const device = await createDevice(req,res);
+            if(!device){
+                logWithTime(`❌ Device creation failed for User ${user.userID} for device id: ${req.deviceID} at the time of Sign In Request`);
                 return throwInternalServerError(res);
             }
-            const isCookieSet = setRefreshTokenCookie(res,refreshToken);
+            // Sign with JWT Token
+            const accessToken = await signInWithToken(req,res);
+            if (accessToken === "") {
+                logWithTime(`❌ Access token generation failed during login of User with userID: ${user.userID} from device id: ${req.deviceID}`);
+                return throwInternalServerError(res);
+            }
+            const isCookieSet = setAccessTokenCookie(res,accessToken);
             if(!isCookieSet){
                 logWithTime(`❌ An Internal Error Occurred in setting refresh token for user ${user.userID} at the time of Login. Request is made from device ID: ${req.deviceID}`);
                 return;
             }
-            user.jwtTokenIssuedAt = Date.now();
-            const isUserLoggedIn = await loginTheUser(user,refreshToken,device,res);
+            await prisma.user.update({
+                where: {userID: user.userID},
+                data: {
+                    jwtTokenIssuedAt: new Date()
+                }
+            })
+            const isUserLoggedIn = await loginTheUser(user,device,res);
             if(!isUserLoggedIn){
                 logWithTime(`❌ An Internal Error Occurred in logging in the user ${user.userID} at the time of login request. Request is made from device ID: ${req.deviceID}`);
                 return;
             }
             // Update data into auth.logs
-            await logAuthEvent(req, "LOGIN", null);
-            const accessToken = await makeTokenWithMongoID(req,res,expiryTimeOfAccessToken);
-            if(!accessToken){
-                logWithTime(`❌ Access token creation failed for User ${user.userID} at the time of sign up request. Request is made from device id: ${req.deviceID}`);
-                return throwInternalServerError(res);
-            }
-            const isAccessTokenSet = setAccessTokenHeaders(res,accessToken);
-            if(!isAccessTokenSet){
-                logWithTime(`❌ Access token set in header failed for User ${user.userID} at the time of sign in request. Request is made from device id: ${req.deviceID}`);
-                return throwInternalServerError(res);
-            }
+            await logAuthEvent(req, authLogEvents.LOGIN, null);
             logWithTime(`🔐 User with ${user.userID} is Successfully logged in from device id: ${req.deviceID}`);
             const praiseBy = user.name || user.userID;
             return res.status(OK).json({
@@ -357,15 +338,18 @@ const signOut = async (req,res) => {
     try{
         let user = req.user;
         if(!user){
-            return throwInvalidResourceError(res,"UserID");
+            return throwInvalidResourceError(res,"User");
         }
-        const isUserLoggedOut = await logoutUserCompletely(user,res,req,"log out from all device request")
+        const isUserLoggedOut = await logoutUserCompletely(user,res,req,"log out")
         if(!isUserLoggedOut)return;
         // Update data into auth.logs
-        await logAuthEvent(req, "LOGOUT_ALL_DEVICE", null);    
+        await logAuthEvent(req, authLogEvents.LOGOUT, null);    
         if (user.isBlocked) {
-            logWithTime(`⚠️ Blocked user ${user.userID} attempted to logout from all devices from (${req.deviceID}).`);
+            logWithTime(`⚠️ Blocked user ${user.userID} attempted to logout from system by (${req.deviceID}).User is now signed out`);
             return throwBlockedAccountError(res); // ✅ Don't proceed if blocked
+        }
+        else if(!user.isActive){
+            logWithTime(`⚠️ Deactivated user ${user.userID} attempted to logout from system by (${req.deviceID}).User is now signed out`);
         }
         else logWithTime(`🔓 User with (${user.userID}) is Successfully logged out from all devices. User used device having device ID: (${req.deviceID})`);
         const praiseBy = user.name || user.userID;
@@ -382,63 +366,6 @@ const signOut = async (req,res) => {
     }
 }
 
-const signOutFromSpecificDevice = async(req,res) => {
-    try{
-        const user = req.user;
-        if(!user){
-            return throwInvalidResourceError(res,"UserID");
-        }
-        let device = await getDeviceByID(user,req.deviceID)
-        if(!device){
-            return throwInvalidResourceError(res,"Device ID");
-        }
-        // ✅ Now Check if User is Already Logged In
-        const result = await checkUserIsNotVerified(req,res);
-        if(result){
-            logWithTime(`🚫 Request Denied: User (${user.userID}) is already logged out from device ID: (${req.deviceID}). User tried this using device ID: (${req.deviceID})`);
-            return res.status(BAD_REQUEST).json({
-                success: false,
-                message: "User is already logged out from all devices.",
-                suggestion: "Please login first before trying to logout again."
-            });
-        }
-        const praiseBy = user.name || user.userID;
-        // Check if User is Logged in on this Single Device  
-        if(user.devices.info.length === 1){ 
-            // If yes then isVerified is changed to False
-            const isUserLoggedOut = await logoutUserCompletely(user,res,req,"log out from current device request")
-            if(!isUserLoggedOut)return;
-            logWithTime(`User (${user.userID}) has log out from last active device successfully from device id: (${req.deviceID})`);
-            // Update data into auth.logs
-            await logAuthEvent(req, "LOGOUT_SPECIFIC_DEVICE", null);  
-            return res.status(OK).json({
-                success: true,
-                message: praiseBy+", successfully signed out from the specified device. Now, You are not signed from any of the device"
-            });
-        }
-        user.devices.info = user.devices.info.filter(item => item.deviceID !== req.deviceID);
-
-        await user.save();
-        if (user.isBlocked) {
-            logWithTime(`⚠️ Blocked user ${user.userID} attempted to logout from device id: ${req.deviceID}.`);
-            return throwBlockedAccountError(res); // ✅ Don't proceed if blocked
-        }
-        else logWithTime(`📤 User (${user.userID}) signed out from device: ${req.deviceID}`);
-        // Update data into auth.logs
-        await logAuthEvent(req, "LOGOUT_SPECIFIC_DEVICE");  
-        return res.status(OK).json({
-            success: true,
-            message: praiseBy+", successfully signed out from this device."
-        });
-
-    }catch(err){
-        const getIdentifiers = getLogIdentifiers(req);
-        logWithTime(`❌ Internal Error occurred while logging in the User ${getIdentifiers}`);
-        errorMessage(err)
-        return throwInternalServerError(res);        
-    }
-}
-
 // Logic to activate user account
 const activateUserAccount = async(req,res) => {
     try{
@@ -447,13 +374,17 @@ const activateUserAccount = async(req,res) => {
         if(!isPasswordValid){
             return throwInvalidResourceError(res,"Password");
         }
-        user.isActive = true;
-        user.lastActivatedAt = Date.now();
-        await user.save();
+        await prisma.user.update({
+            where: {userID: user.userID},
+            data: {
+                isActive: true,
+                lastActivatedAt: new Date()
+            }
+        });
         // Activation success log
         logWithTime(`✅ Account activated for UserID: ${user.userID} from device ID: (${req.deviceID})`);
         // Update data into auth.logs
-        await logAuthEvent(req, "ACTIVATE", null);
+        await logAuthEvent(req, authLogEvents.ACTIVATE, null);
         return res.status(OK).json({
             success: true,
             message: "Account activated successfully.",
@@ -475,15 +406,20 @@ const deactivateUserAccount = async(req,res) => {
         if(!isPasswordValid){
             return throwInvalidResourceError(res,"Password");
         }
-        user.isActive = false;
-        user.lastDeactivatedAt = Date.now();
+        await prisma.user.update({
+            where: {userID: user.userID},
+            data: {
+                isActive: false,
+                lastDeactivatedAt: new Date()
+            }
+        });
         // Forcibly Log Out User when its Account is Deactivated
         const isUserLoggedOut = await logoutUserCompletely(user,res,req,"decativate account request")
         if(!isUserLoggedOut)return;
         // Deactivation success log
         logWithTime(`🚫 Account deactivated for UserID: ${user.userID} from device id: (${req.deviceID})`);
         // Update data into auth.logs
-        await logAuthEvent(req, "DEACTIVATE", null);
+        await logAuthEvent(req, authLogEvents.DEACTIVATE, null);
         return res.status(OK).json({
             success: true,
             message: "Account deactivated successfully.",
@@ -506,13 +442,18 @@ const changePassword = async(req,res) => {
             return throwInvalidResourceError(res,"Password");
         }
         user.password = await bcryptjs.hash(password, SALT); // Password is Encrypted
-        user.passwordChangedAt = Date.now();
-        await user.save();
-        const isUserLoggedOut = await logoutUserCompletely(user,res,req,"log out from all device request")
+        await prisma.user.update({
+            where: {userID: user.userID},
+            data: {
+                password: user.password,
+                passwordChangedAt: new Date()
+            }
+        });
+        const isUserLoggedOut = await logoutUserCompletely(user,res,req,"log out from all device request");
         if(!isUserLoggedOut)return;
         logWithTime(`✅ User Password with userID: (${user.userID}) is changed Succesfully from device id: (${req.deviceID})`);
         // Update data into auth.logs
-        await logAuthEvent(req, "CHANGE_PASSWORD", null);  
+        await logAuthEvent(req, authLogEvents.CHANGE_PASSWORD, null);  
         return res.status(OK).json({
             success: true,
             message: "Your password has been changed successfully."
@@ -529,30 +470,30 @@ const getMyActiveDevices = async (req, res) => {
   try {
     const user = req.user;
 
-    if (!Array.isArray(user.devices?.info) || user.devices.info.length === 0) {
+    if (!user.device) {
       logWithTime(`📭 No active devices found for User (${user.userID})`);
       return res.status(OK).json({
         success: true,
         message: "No active devices found.",
-        total: 0,
-        devices: []
+        total: 0
       });
     }
 
-    const publicDevices = user.devices.info.map(({ lastUsedAt, deviceType }) => ({
-      lastUsedAt,
-      deviceType: deviceType || "Unknown"
-    })).sort((a, b) => new Date(b.lastUsedAt) - new Date(a.lastUsedAt));
+    const device = {
+        deviceName: user.device.deviceName,
+        deviceType: user.device.deviceType,
+        lastUsedAt: user.device.lastUsedAt
+    }
 
     // Update data into auth.logs
-    await logAuthEvent(req, "GET_MY_ACTIVE_DEVICES", null);
+    await logAuthEvent(req, authLogEvents.GET_MY_ACTIVE_DEVICES, null);
 
     logWithTime(`🙋‍♂️ User (${user.userID}) fetched public view of their active devices.`);
     return res.status(OK).json({
       success: true,
-      message: "Your active sessions fetched successfully.",
-      total: publicDevices.length,
-      devices: publicDevices
+      message: "You are logged in on this Device.",
+      total: 1,
+      device: device
     });
   } catch (err) {
     const getIdentifiers = getLogIdentifiers(req);
@@ -571,19 +512,20 @@ const provideUserAccountDetails = async(req,res) => {
         const User_Account_Details = {
             "Name": user.name,
             "Customer ID": user.userID,
-            "Phone Number": user.phoneNumber,
+            "Phone Number": user.fullPhoneNumber,
             "Email ID": user.emailID,
             "Verified": user.isVerified,
             "Last Login Time": user.lastLogin,
             "Account Status": user.isActive ? "Activated" : "Deactivated",
-            "Blocked Account": user.isBlocked ? "Yes" : "No"
+            "Blocked Account": user.isBlocked ? "Yes" : "No",
+            "Account Created At": user.createdAt
         }
         if(user.passwordChangedAt)User_Account_Details["Password Changed At"] = user.passwordChangedAt;
-        if(user.activatedAt)User_Account_Details["Activated Account At"] = user.lastActivatedAt;
-        if(user.deactivatedAt)User_Account_Details["Deactivated Account At"] = user.lastDeactivatedAt;
+        if(user.lastActivatedAt)User_Account_Details["Activated Account At"] = user.lastActivatedAt;
+        if(user.lastDeactivatedAt)User_Account_Details["Deactivated Account At"] = user.lastDeactivatedAt;
         if(user.lastLogout)User_Account_Details["Last Logout At"] = user.lastLogout;
         // Update data into auth.logs
-        await logAuthEvent(req, "PROVIDE_MY_ACCOUNT_DETAILS", null);
+        await logAuthEvent(req, authLogEvents.PROVIDE_MY_ACCOUNT_DETAILS, null);
         logWithTime(`✅ User Account Details with User ID: (${user.userID}) is provided Successfully to User from device ID: (${req.deviceID})`);
         return res.status(OK).json({
             success: true,
@@ -607,6 +549,5 @@ module.exports = {
     activateUserAccount: activateUserAccount,
     deactivateUserAccount: deactivateUserAccount,
     checkUserIsNotVerified: checkUserIsNotVerified,
-    signOutFromSpecificDevice: signOutFromSpecificDevice,
     provideUserAccountDetails: provideUserAccountDetails
 }
