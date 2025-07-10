@@ -31,7 +31,6 @@ module.exports = {
         SIGNUP: `/signup`,                          // POST /custom-auth-service/api/v1/auth/signup
         SIGNIN: `/signin`,                          // POST /custom-auth-service/api/v1/auth/signin
         SIGNOUT: `/signout`,                        // POST /custom-auth-service/api/v1/auth/signout
-        SIGNOUT_FROM_SPECIFIC_DEVICE: `/signout-device`, // POST /custom-auth-service/api/v1/auth/signout-device
         DEACTIVATE_USER: `/deactivate`,             // PATCH /custom-auth-service/api/v1/auth/deactivate
         ACTIVATE_USER: `/activate`,                 // PATCH /custom-auth-service/api/v1/auth/activate
         CHANGE_PASSWORD: `/change-password`,        // PATCH /custom-auth-service/api/v1/auth/change-password
@@ -56,6 +55,6 @@ module.exports = {
         }
     },
     INTERNAL_ROUTES: {
-        SET_REFRESH_COOKIE: "/admin/set-refresh-cookie"  // POST /custom-auth-service/internal/admin/set-refresh-cookie
+        SET_ACCESS_COOKIE: "/admin/set-access-cookie"  // POST /custom-auth-service/internal/admin/set-access-cookie
     }
 }

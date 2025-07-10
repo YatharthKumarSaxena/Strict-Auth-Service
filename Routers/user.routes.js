@@ -9,6 +9,7 @@ const internalMiddleware = require("../middlewares/internal.api.middleware");
 const commonUsedMiddleware = require("../middlewares/common-used.middleware");
 const internalController = require("../controllers/internal-api.controllers");
 const authController = require("../controllers/auth.controllers");
+
 // 🔹 Middleware: Body Parser - THIS MUST BE BEFORE ROUTES
 const bodyParser = express.json();  // Converts the JSON Object Requests into JavaScript Object
 
@@ -17,6 +18,7 @@ const { FETCH_MY_PROFILE,UPDATE_PROFILE } = URIS.USER_ROUTES;
 // 📄 Public User: Get Own Account Details
 // 🔒 Middleware:
 // - Check whether Device provided or not
+// - Check that device is blocked or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Confirms user is not blocked
@@ -37,6 +39,7 @@ router.get(FETCH_MY_PROFILE, [
 // 👤 Authenticated User: Update Own Profile Details
 // 🔒 Middleware:
 // - Check whether Device provided or not
+// - Check that device is blocked or not
 // - Validates that Refresh Token Provided or not and is Valid and Access Token is Present or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks

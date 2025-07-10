@@ -8,17 +8,19 @@ const authMiddleware = require("../middlewares/auth.middleware");
 const commonUsedMiddleware = require("../middlewares/common-used.middleware");
 const specialLimiter = require("../rate-limiters/special-api-rate-limiter");
 const generalLimiter = require("../rate-limiters/general-api.rate-limiter");
+
 // 🔹 Middleware: Body Parser - THIS MUST BE BEFORE ROUTES
 const bodyParser = express.json();  // Converts the JSON Object Requests into JavaScript Object
 
 const {
-  SIGNUP, SIGNIN, SIGNOUT, SIGNOUT_FROM_SPECIFIC_DEVICE,
+  SIGNUP, SIGNIN, SIGNOUT,
   ACTIVATE_USER, DEACTIVATE_USER, CHANGE_PASSWORD, CHECK_ACTIVE_SESSIONS
 } = URIS.AUTH_ROUTES;
 
 // 👤 Public User Signup Route
 // 🔒 Middleware:
 // - Check whether Device provided or not
+// - Check that device is blocked or not
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Validates required fields for creating a new user
 // 📌 Controller:
@@ -34,6 +36,7 @@ router.post(SIGNUP, [
 // 🔐 Public User Signin Route
 // 🔒 Middleware:
 // - Check whether Device provided or not
+// - Check that device is blocked or not
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Verifies login credentials
 // - Checks if user is blocked or deactivated
@@ -53,6 +56,7 @@ router.post(SIGNIN, [
 // 🔓 Public User Forced Signout Route: Sign Out User From All Devices
 // 🔒 Middleware:
 // - Check whether Device provided or not
+// - Check that device is blocked or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Validates signout body
@@ -70,6 +74,7 @@ router.post(SIGNOUT, [
 // ✅ Public User: Activate Own Account
 // 🔒 Middleware:
 // - Check whether Device provided or not
+// - Check that device is blocked or not
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Ensures user is not blocked
 // - Verifies required credentials in body
@@ -87,6 +92,7 @@ router.patch(ACTIVATE_USER, [
 // 🚫 Public User: Deactivate Own Account
 // 🔒 Middleware:
 // - Check whether Device provided or not
+// - Check that device is blocked or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Confirms user is not blocked
@@ -109,6 +115,7 @@ router.patch(DEACTIVATE_USER, [
 // 👤 Authenticated User: Change their own Password
 // 🔒 Middleware:
 // - Check whether Device provided or not
+// - Check that device is blocked or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Confirms user is not blocked (e.g. by admin)
@@ -133,6 +140,7 @@ router.patch(CHANGE_PASSWORD, [
 // 👤 Authenticated User: Provide details of devices to user where he/she is logged in
 // 🔒 Middleware:
 // - Check whether Device provided or not
+// - Check that device is blocked or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Confirms user is not blocked (e.g. by admin)

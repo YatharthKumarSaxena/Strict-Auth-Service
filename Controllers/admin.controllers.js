@@ -2,6 +2,7 @@
 
 // Extract the Required Modules
 const prisma = require('../clients/public.prisma');   // ← user table lives in public DB
+const prismaPrivate = require("../clients/private.prisma");
 const { throwInvalidResourceError, throwInternalServerError, errorMessage, throwAccessDeniedError } = require("../configs/error-handler.configs");
 const { logWithTime } = require("../utils/time-stamps.utils");
 const { adminID } = require("../configs/admin-id.config");
@@ -9,6 +10,7 @@ const { BLOCK_REASONS, UNBLOCK_REASONS } = require("../configs/user-enums.config
 const { fetchUser } = require("../middlewares/helper.middleware");
 const { isAdminID, validateSingleIdentifier } = require("../utils/auth.utils");
 const { logAuthEvent } = require("../utils/auth-log-utils");
+const { DEVICE_BLOCK_REASONS, DEVICE_UNBLOCK_REASONS } = require("../configs/device-enum-reasons.config");
 const { OK } = require("../configs/http-status.config");
 const { getLogIdentifiers } = require("../configs/error-handler.configs");
 const authLogEvents = require("../configs/auth-log-events.config");
@@ -29,7 +31,7 @@ const blockUserAccount = async(req,res) => {
         }
         // Checking Provided Reasons for Blocking are Invalid
         if (!Object.values(BLOCK_REASONS).includes(blockReason)) {
-            logWithTime(`✅ Admin (${req.user.userID}) tried to block user (${req.body.userID }) with invalid reason (${blockReason}) from device id: (${req.deviceID})`);
+            logWithTime(`❌ Admin (${req.user.userID}) tried to block user (${req.body.userID }) with invalid reason (${blockReason}) from device id: (${req.deviceID})`);
             return throwInvalidResourceError(res,`Block reason. Accepted reasons: ${Object.values(BLOCK_REASONS).join(", ")}`);
         }
         if(user.isBlocked){
@@ -50,7 +52,7 @@ const blockUserAccount = async(req,res) => {
         });
         logWithTime(`✅ Admin (${req.user.userID}) blocked user (${user.userID}) from device ID: (${req.deviceID}) with (${blockReason}) reason via (${verifyWith})`);
         // Update data into auth.logs
-        await logAuthEvent(req, authLogEvents.BLOCKED ,{
+        await logAuthEvent(req, authLogEvents.BLOCKED_USER ,{
             performedOn: user,
             adminAction: { reason: blockReason, targetUserID: user.userID }
         });  
@@ -82,7 +84,7 @@ const unblockUserAccount = async(req,res) => {
         }
         // Checking Provided Reasons for Unblocking are Invalid
         if (!Object.values(UNBLOCK_REASONS).includes(unblockReason)) {
-            logWithTime(`✅ Admin (${req.user.userID}) tried to unblock user (${req.body.userID }) with invalid reason (${unblockReason}) from device ID: (${req.deviceID})`);
+            logWithTime(`❌ Admin (${req.user.userID}) tried to unblock user (${req.body.userID }) with invalid reason (${unblockReason}) from device ID: (${req.deviceID})`);
             return throwInvalidResourceError(res,`Unblock reason. Accepted reasons: ${Object.values(UNBLOCK_REASONS).join(", ")}`);
         }
         if(!user.isBlocked){
@@ -102,7 +104,7 @@ const unblockUserAccount = async(req,res) => {
         });
         logWithTime(`✅ Admin (${req.user.userID}) unblocked user (${user.userID}) from device ID: (${req.deviceID}) with (${unblockReason}) reason via (${verifyWith})`);
         // Update data into auth.logs
-        await logAuthEvent(req, authLogEvents.UNBLOCKED ,{
+        await logAuthEvent(req, authLogEvents.UNBLOCKED_USER ,{
             performedOn: user,
             adminAction: { reason: unblockReason, targetUserID: user.userID }
         });  
@@ -117,6 +119,119 @@ const unblockUserAccount = async(req,res) => {
         return throwInternalServerError(res);
     }
 }
+
+const blockDevice = async (req, res) => {
+    try {
+        const { deviceID, reason } = req.body;
+
+        // ✅ Validation: DeviceID presence
+        if (!deviceID) {
+            logWithTime(`⚠️ Block device failed: Missing deviceID in request from Admin (${req.user.userID})`);
+            return throwInvalidResourceError(res, "deviceID");
+        }
+
+        // ✅ Validation: Reason check
+        if (!Object.values(DEVICE_BLOCK_REASONS).includes(reason)) {
+            logWithTime(`⚠️ Admin (${req.user.userID}) attempted to block device (${deviceID}) with invalid reason: ${reason}`);
+            return throwInvalidResourceError(res, `Block reason. Accepted: ${Object.values(DEVICE_BLOCK_REASONS).join(", ")}`);
+        }
+
+        // ✅ Check if already blocked
+        const existing = await prismaPrivate.deviceBlock.findUnique({ where: { deviceID: deviceID } });
+        if (existing?.isBlocked) {
+            logWithTime(`⚠️ Device (${deviceID}) already blocked. Admin (${req.user.userID}) tried blocking again with reason: ${reason}`);
+            return throwAccessDeniedError(res, `Device already blocked.`);
+        }
+
+        // ✅ Upsert block record
+        await prismaPrivate.deviceBlock.upsert({
+            where: { deviceID: deviceID },
+            update: {
+                isBlocked: true,
+                blockedAt: new Date(),
+                blockedBy: req.user.userID,
+                reason,
+            },
+            create: {
+                deviceID,
+                isBlocked: true,
+                blockedAt: new Date(),
+                blockedBy: req.user.userID,
+                reason,
+            }
+        });
+
+        logWithTime(`✅ Admin (${req.user.userID}) blocked device (${deviceID}) for reason: ${reason}`);
+
+        await logAuthEvent(req, authLogEvents.BLOCKED_DEVICE, {
+            adminAction: { reason, targetDeviceID: deviceID }
+        });
+
+        return res.status(OK).json({
+            success: true,
+            message: `Device (${deviceID}) successfully blocked.`,
+            resolvedBy: req.user.userID
+        });
+
+    } catch (err) {
+        logWithTime(`❌ Internal Error while blocking device (${req.body.deviceID}) by Admin (${req.user.userID})`);
+        errorMessage(err);
+        return throwInternalServerError(res);
+    }
+};
+
+const unblockDevice = async (req, res) => {
+    try {
+        const { deviceID, reason } = req.body;
+
+        // ✅ Validation: DeviceID presence
+        if (!deviceID) {
+            logWithTime(`⚠️ Unblock device failed: Missing deviceID in request from Admin (${req.user.userID})`);
+            return throwInvalidResourceError(res, "deviceID");
+        }
+
+        // ✅ Validation: Reason check
+        if (!Object.values(DEVICE_UNBLOCK_REASONS).includes(reason)) {
+            logWithTime(`⚠️ Admin (${req.user.userID}) attempted to unblock device (${deviceID}) with invalid reason: ${reason}`);
+            return throwInvalidResourceError(res, `Unblock reason. Accepted: ${Object.values(DEVICE_UNBLOCK_REASONS).join(", ")}`);
+        }
+
+        // ✅ Check if device exists and is blocked
+        const existing = await prismaPrivate.deviceBlock.findUnique({ where: { deviceID: deviceID } });
+        if (!existing || !existing.isBlocked) {
+            logWithTime(`⚠️ Device (${deviceID}) is not blocked. Admin (${req.user.userID}) attempted to unblock with reason: ${reason}.`);
+            return throwAccessDeniedError(res, `Device is not blocked.`);
+        }
+
+        // ✅ Update unblock info
+        await prismaPrivate.deviceBlock.update({
+            where: { deviceID: deviceID },
+            data: {
+                isBlocked: false,
+                unblockedAt: new Date(),
+                unblockedBy: req.user.userID,
+                reason
+            }
+        });
+
+        logWithTime(`✅ Admin (${req.user.userID}) unblocked device (${deviceID}) for reason: ${reason}`);
+
+        await logAuthEvent(req, authLogEvents.UNBLOCKED_DEVICE, {
+            adminAction: { reason, targetDeviceID: deviceID }
+        });
+
+        return res.status(OK).json({
+            success: true,
+            message: `Device (${deviceID}) successfully unblocked.`,
+            resolvedBy: req.user.userID
+        });
+
+    } catch (err) {
+        logWithTime(`❌ Internal Error while unblocking device (${req.body.deviceID}) by Admin (${req.user.userID})`);
+        errorMessage(err);
+        return throwInternalServerError(res);
+    }
+};
 
 const getUserAuthLogs = async (req, res) => {
   try {
@@ -138,21 +253,21 @@ const getUserAuthLogs = async (req, res) => {
     let userID;
     if(user)userID = user.userID;
 
-    if (userID){
-        const isUserCheckedAdmin = isAdminID(userID);
-        if(isUserCheckedAdmin && userID !== adminID){
-            logWithTime(`❌ Admin (${req.user.userID}) attempted to access logs of another admin (${userID})`);
-            return throwAccessDeniedError(res,"Access denied. You cannot access another admin's authentication logs.")
-        }
-        query.userID = userID;
-    } 
-    
     const prismaQuery = {
       where: {},
       orderBy: {
         timestamp: 'desc'
       }
     };
+
+    if (userID){
+        const isUserCheckedAdmin = isAdminID(userID);
+        if(isUserCheckedAdmin && userID !== adminID){
+            logWithTime(`❌ Admin (${req.user.userID}) attempted to access logs of another admin (${userID})`);
+            return throwAccessDeniedError(res,"Access denied. You cannot access another admin's authentication logs.")
+        }
+        prismaQuery.userID = userID;
+    } 
 
     if (userID) {
       prismaQuery.where.userID = userID;
@@ -312,9 +427,11 @@ const getUserActiveDevicesForAdmin = async (req, res) => {
 };
 
 module.exports = {
-    getUserAuthLogs: getUserAuthLogs,
-    blockUserAccount: blockUserAccount,
-    unblockUserAccount: unblockUserAccount,
-    checkUserAccountStatus: checkUserAccountStatus,
-    getUserActiveDevicesForAdmin: getUserActiveDevicesForAdmin
+  blockDevice: blockDevice,
+  unblockDevice: unblockDevice,
+  getUserAuthLogs: getUserAuthLogs,
+  blockUserAccount: blockUserAccount,
+  unblockUserAccount: unblockUserAccount,
+  checkUserAccountStatus: checkUserAccountStatus,
+  getUserActiveDevicesForAdmin: getUserActiveDevicesForAdmin
 }

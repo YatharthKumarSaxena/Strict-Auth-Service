@@ -10,6 +10,7 @@ const internalMiddleware = require("../middlewares/internal.api.middleware");
 const generalLimiter = require("../rate-limiters/general-api.rate-limiter");
 const adminMiddleware = require("../middlewares/admin.middleware");
 const internalController = require("../controllers/internal-api.controllers");
+
 // 🔹 Middleware: Body Parser - THIS MUST BE BEFORE ROUTES
 const bodyParser = express.json();  // Converts the JSON Object Requests into JavaScript Object
 
@@ -23,6 +24,7 @@ const { GET_TOTAL_REGISTERED_USERS, GET_USER_AUTH_LOGS } = URIS.ADMIN_ROUTES.STA
 // 🚫 Admin Only: Block User Account
 // 🔒 Middleware:
 // - Check whether Device provided or not
+// - Check that device is blocked or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Verifies admin identity from request body
@@ -44,6 +46,7 @@ router.patch(BLOCK_USER, [
 // ✅ Admin Only: Unblock User Account
 // 🔒 Middleware: (same as block user)
 // - Check whether Device provided or not
+// - Check that device is blocked or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Check whether provided request body is valid
@@ -65,6 +68,7 @@ router.patch(UNBLOCK_USER, [
 // ✅ Admin Only: Check any user auth logs based on filter 
 // 🔒 Middleware:
 // - Check whether Device provided or not
+// - Check that device is blocked or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Confirms that provided user is Admin or not
@@ -85,6 +89,7 @@ router.post(GET_USER_AUTH_LOGS, [
 // 🛡️ Admin Only: Get Any User's Account Details
 // 🔒 Middleware:
 // - Check whether Device provided or not
+// - Check that device is blocked or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Confirms the requester is an admin (role check)
@@ -106,6 +111,7 @@ router.get(FETCH_USER_DETAILS, [
 // 🛡️ Admin Only: Provide details of devices of user to admin where he/she is logged in
 // 🔒 Middleware:
 // - Check whether Device provided or not
+// - Check that device is blocked or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Confirms the requester is an admin (role check)
@@ -126,6 +132,7 @@ router.get(GET_USER_ACTIVE_SESSIONS, [
 // 🛡️ Admin Only: Provide details of devices of user to admin where he/she is logged in
 // 🔒 Middleware:
 // - Check whether Device provided or not
+// - Check that device is blocked or not
 // - Validates Access token or generate it if Expired
 // - Rate Limiter to prevent Server Crash from Heavy API Attacks
 // - Confirms the requester is an admin (role check)
