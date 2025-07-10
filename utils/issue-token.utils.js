@@ -1,20 +1,20 @@
 // Extract the required Module
 const jwt = require("jsonwebtoken");
-const {secretCodeOfAccessToken} = require("../configs/user-id.config");
+const {secretCodeOfAccessToken} = require("../configs/admin-user.config");
 const {expiryTimeOfAccessToken} = require("../configs/token-expiry.config");
 const { logWithTime } = require("./time-stamps.utils");
 const { errorMessage, throwInternalServerError } = require("../configs/error-handler.configs");
 const { logAuthEvent, adminAuthLogForSetUp } = require("../utils/auth-log-utils");
 const authLogEvents = require("../configs/auth-log-events.config");
 
-exports.makeTokenWithMongoID = async(req,res) => {
+exports.makeTokenWithPrismaID = async(req,res) => {
     try {
         const user = req.user;
-        const mongoID = user._id;
+        const prismaID = user.id;
         const secretCode = secretCodeOfAccessToken;
         const newToken = jwt.sign(
             {
-                id: mongoID,          // ✅ required for `findById`
+                id: prismaID,          
             },
             secretCode,
             { expiresIn: expiryTimeOfAccessToken }
@@ -31,13 +31,13 @@ exports.makeTokenWithMongoID = async(req,res) => {
     }
 };
 
-exports.makeTokenWithMongoIDForAdmin = async(user) => {
+exports.makeTokenWithPrismaIDForAdmin = async(user) => {
     try {
-        const mongoID = user._id;
+        const prismaID = user.id;
         const secretCode = secretCodeOfAccessToken;
         const newToken = jwt.sign(
             {
-                id: mongoID,          // ✅ required for `findById`
+                id: prismaID,          
             },
             secretCode,
             { expiresIn: expiryTimeOfAccessToken }

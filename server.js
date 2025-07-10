@@ -13,10 +13,11 @@ const { PORT_NUMBER } = require("./configs/server.config");
 const prisma = require("./clients/public.prisma");
 const app = express(); // App is an Express Function
 const authLogEvents = require("./configs/auth-log-events.config");
-const { expiryTimeOfAccessToken, adminUser } = require("./configs/user-id.config");
+const { adminUser } = require("./configs/admin-user.config");
+const { expiryTimeOfAccessToken } = require("./configs/security.config")
 const {errorMessage} = require("./configs/error-handler.configs");
 const { logWithTime } = require("./utils/time-stamps.utils");
-const { makeTokenWithMongoIDForAdmin } = require("./utils/issue-token.utils");
+const { makeTokenWithPrismaIDForAdmin } = require("./utils/issue-token.utils");
 const { adminAuthLogForSetUp } = require("./utils/auth-log-utils");
 const { malformedJsonHandler,globalErrorHandler } = require("./configs/server-error-handler.config");
 
@@ -46,7 +47,7 @@ async function init(){ // To use await we need to make function Asynchronous
                 });
                 logWithTime("👑 Admin User Created Successfully");
                 /*
-                const accessToken = await makeTokenWithMongoIDForAdmin(user,expiryTimeOfAccessToken);
+                const accessToken = await makeTokenWithPrismaIDForAdmin(user,expiryTimeOfAccessToken);
                 if(accessToken){
                     logWithTime("👑 Welcome Admin, you are successfully logged in!");
                     logWithTime("🔐 Here is your access token");

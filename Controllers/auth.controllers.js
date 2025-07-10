@@ -7,7 +7,7 @@
 */
 
 // Extracting the required modules
-const { SALT, expiryTimeOfAccessToken} = require("../configs/user-id.config");
+const { SALT, expiryTimeOfAccessToken} = require("../configs/admin-user.config");
 const bcryptjs = require("bcryptjs")
 const { throwInvalidResourceError, errorMessage, throwInternalServerError, getLogIdentifiers, throwResourceNotFoundError } = require("../configs/error-handler.configs");
 const { logWithTime } = require("../utils/time-stamps.utils");

@@ -3,7 +3,7 @@
 const express = require("express");
 const router = express.Router();
 const URIS = require("../configs/uri.config");
-const { setRefreshCookieForAdmin } = require("../controllers/internal-api.controllers");
+const { setAccessTokenInCookieForAdmin } = require("../controllers/internal-api.controllers");
 const commonUsedMiddleware = require("../middlewares/common-used.middleware");
 // 🔹 Middleware: Body Parser - THIS MUST BE BEFORE ROUTES
 const bodyParser = express.json();  // Converts the JSON Object Requests into JavaScript Object
@@ -17,6 +17,6 @@ router.post(SET_REFRESH_COOKIE, [
   commonUsedMiddleware.verifySetAdminCookieBody,
   commonUsedMiddleware.isAdmin,
   commonUsedMiddleware.checkUserIsVerified
-], setRefreshCookieForAdmin);
+], setAccessTokenInCookieForAdmin);
 
 module.exports = router;
