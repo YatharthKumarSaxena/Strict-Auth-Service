@@ -26,6 +26,7 @@ const { FETCH_MY_PROFILE,UPDATE_PROFILE } = URIS.USER_ROUTES;
 // - Returns full account details of the logged-in user
 router.get(FETCH_MY_PROFILE, [
     commonUsedMiddleware.verifyDeviceField,
+    commonUsedMiddleware.checkDeviceIsNotBlocked,
     commonUsedMiddleware.verifyToken,
     generalLimiter.checkMyAccountDetailsRateLimiter,
     commonUsedMiddleware.isUserBlocked,
@@ -49,6 +50,7 @@ router.get(FETCH_MY_PROFILE, [
 router.patch(UPDATE_PROFILE,[
     bodyParser,
     commonUsedMiddleware.verifyDeviceField,
+    commonUsedMiddleware.checkDeviceIsNotBlocked,
     commonUsedMiddleware.verifyToken,
     generalLimiter.updateUserAccountRateLimiter,
     commonUsedMiddleware.isUserBlocked,

@@ -26,6 +26,7 @@ const {
 router.post(SIGNUP, [
   bodyParser,
   commonUsedMiddleware.verifyDeviceField,
+  commonUsedMiddleware.checkDeviceIsNotBlocked,
   specialLimiter.signUpRateLimiter,
   authMiddleware.verifySignUpBody
 ], authController.signUp);
@@ -42,6 +43,7 @@ router.post(SIGNUP, [
 router.post(SIGNIN, [
   bodyParser,
   commonUsedMiddleware.verifyDeviceField,
+  commonUsedMiddleware.checkDeviceIsNotBlocked,
   specialLimiter.signInRateLimiter,
   authMiddleware.verifySignInBody,
   commonUsedMiddleware.isUserBlocked,
@@ -59,6 +61,7 @@ router.post(SIGNIN, [
 router.post(SIGNOUT, [
   bodyParser,
   commonUsedMiddleware.verifyDeviceField,
+  commonUsedMiddleware.checkDeviceIsNotBlocked,
   commonUsedMiddleware.verifyToken,
   generalLimiter.signOutRateLimiter,
   authMiddleware.verifySignOutBody
@@ -75,6 +78,7 @@ router.post(SIGNOUT, [
 router.patch(ACTIVATE_USER, [
   bodyParser,
   commonUsedMiddleware.verifyDeviceField,
+  commonUsedMiddleware.checkDeviceIsNotBlocked,
   specialLimiter.activateAccountRateLimiter,
   authMiddleware.verifyActivateUserAccountBody,
   commonUsedMiddleware.isUserBlocked
@@ -93,6 +97,7 @@ router.patch(ACTIVATE_USER, [
 router.patch(DEACTIVATE_USER, [
   bodyParser,
   commonUsedMiddleware.verifyDeviceField,
+  commonUsedMiddleware.checkDeviceIsNotBlocked,
   commonUsedMiddleware.verifyToken,
   generalLimiter.deactivateAccountRateLimiter,
   authMiddleware.verifyDeactivateUserAccountBody,
@@ -116,6 +121,7 @@ router.patch(DEACTIVATE_USER, [
 router.patch(CHANGE_PASSWORD, [
   bodyParser,
   commonUsedMiddleware.verifyDeviceField,
+  commonUsedMiddleware.checkDeviceIsNotBlocked,
   commonUsedMiddleware.verifyToken,
   generalLimiter.changePasswordRateLimiter,
   authMiddleware.verifyChangePasswordBody,
@@ -136,6 +142,7 @@ router.patch(CHANGE_PASSWORD, [
 // - Provide the user list of active sessions
 router.get(CHECK_ACTIVE_SESSIONS, [
   commonUsedMiddleware.verifyDeviceField,
+  commonUsedMiddleware.checkDeviceIsNotBlocked,
   commonUsedMiddleware.verifyToken,
   generalLimiter.getActiveDevicesRateLimiter,
   commonUsedMiddleware.isUserBlocked,

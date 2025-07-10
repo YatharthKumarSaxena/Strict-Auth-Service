@@ -33,6 +33,7 @@ const { GET_TOTAL_REGISTERED_USERS, GET_USER_AUTH_LOGS } = URIS.ADMIN_ROUTES.STA
 router.patch(BLOCK_USER, [
   bodyParser,
   commonUsedMiddleware.verifyDeviceField,
+  commonUsedMiddleware.checkDeviceIsNotBlocked,
   commonUsedMiddleware.verifyToken,
   generalLimiter.blockAccountRateLimiter,
   adminMiddleware.verifyAdminBlockUnblockBody,
@@ -53,6 +54,7 @@ router.patch(BLOCK_USER, [
 router.patch(UNBLOCK_USER, [
   bodyParser,
   commonUsedMiddleware.verifyDeviceField,
+  commonUsedMiddleware.checkDeviceIsNotBlocked,
   commonUsedMiddleware.verifyToken,
   generalLimiter.unblockAccountRateLimiter,
   adminMiddleware.verifyAdminBlockUnblockBody,
@@ -73,6 +75,7 @@ router.patch(UNBLOCK_USER, [
 router.post(GET_USER_AUTH_LOGS, [
   bodyParser,
   commonUsedMiddleware.verifyDeviceField,
+  commonUsedMiddleware.checkDeviceIsNotBlocked,
   commonUsedMiddleware.verifyToken,
   generalLimiter.getUserAuthLogsRateLimiter,
   commonUsedMiddleware.isAdmin,
@@ -92,6 +95,7 @@ router.post(GET_USER_AUTH_LOGS, [
 // - Returns full account details of the target user (based on userId provided in query/body)
 router.get(FETCH_USER_DETAILS, [
   commonUsedMiddleware.verifyDeviceField,
+  commonUsedMiddleware.checkDeviceIsNotBlocked,
   commonUsedMiddleware.verifyToken,
   generalLimiter.checkUserAccountDetailsRateLimiter,
   commonUsedMiddleware.isAdmin,
@@ -111,6 +115,7 @@ router.get(FETCH_USER_DETAILS, [
 // - Provide the user list of active sessions
 router.get(GET_USER_ACTIVE_SESSIONS, [
   commonUsedMiddleware.verifyDeviceField,
+  commonUsedMiddleware.checkDeviceIsNotBlocked,
   commonUsedMiddleware.verifyToken,
   generalLimiter.checkUserDeviceSessionsRateLimiter,
   commonUsedMiddleware.isAdmin,
@@ -129,6 +134,7 @@ router.get(GET_USER_ACTIVE_SESSIONS, [
 // - Provide the total number of registered users and type of users count
 router.get(GET_TOTAL_REGISTERED_USERS, [
   commonUsedMiddleware.verifyDeviceField,
+  commonUsedMiddleware.checkDeviceIsNotBlocked,
   commonUsedMiddleware.verifyToken,
   commonUsedMiddleware.isAdmin,
   commonUsedMiddleware.checkUserIsVerified

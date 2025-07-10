@@ -14,6 +14,7 @@ const { SET_REFRESH_COOKIE } = URIS.INTERNAL_ROUTES;
 router.post(SET_REFRESH_COOKIE, [
   bodyParser,
   commonUsedMiddleware.verifyDeviceField,
+  commonUsedMiddleware.checkDeviceIsNotBlocked,
   commonUsedMiddleware.verifySetAdminCookieBody,
   commonUsedMiddleware.isAdmin,
   commonUsedMiddleware.checkUserIsVerified
