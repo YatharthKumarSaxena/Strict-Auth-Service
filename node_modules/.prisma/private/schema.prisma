@@ -87,3 +87,17 @@ model RateLimit {
 
   @@id([deviceID, routeKey])
 }
+
+model DeviceBlock {
+  deviceID    String    @id // Primary key – Device UUID
+  isBlocked   Boolean   @default(false) // Current status
+  blockedAt   DateTime? // When it was blocked
+  unblockedAt DateTime? // When it was unblocked
+  blockedBy   String? // Admin userID who blocked
+  unblockedBy String? // Admin userID who unblocked
+  reason      String? // Reason for block/unblock
+
+  // Optional: for traceability
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

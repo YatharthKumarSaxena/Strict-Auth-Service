@@ -1,6 +1,7 @@
 // Extracting the Required Modules
 const jwt = require("jsonwebtoken");
 const prisma = require("../clients/public.prisma");
+const prismaPrivate = require("../clients/private.prisma");
 const { UUID_V4_REGEX } = require("../configs/regex.config");
 // Extracting Required Functions and Values
 
@@ -260,10 +261,10 @@ const verifyDeviceField = async (req,res,next) => {
 
 const checkDeviceIsNotBlocked = async (req, res, next) => {
   const deviceID = req.deviceID;
-  const blockedDevice = await prisma.deviceBlock.findUnique({ where: { deviceID } });
+  const blockedDevice = await prismaPrivate.deviceBlock.findUnique({ where: { deviceID: deviceID } });
 
   if (blockedDevice?.isBlocked) {
-    return res.status(403).json({
+    return res.status(FORBIDDEN).json({
       success: false,
       message: "🚫 This device has been blocked by the administrator.",
       blockedBy: blockedDevice.blockedBy,
