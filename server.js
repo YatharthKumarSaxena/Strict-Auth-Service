@@ -13,7 +13,7 @@ const { PORT_NUMBER } = require("./configs/server.config");
 const prisma = require("./clients/public.prisma");
 const app = express(); // App is an Express Function
 const authLogEvents = require("./configs/auth-log-events.config");
-const getAdminUserObject = require("./configs/admin-user.config");
+const { createAdminUserIfNotExists } = require("./configs/admin-user.config");
 const { expiryTimeOfAccessToken } = require("./configs/security.config")
 const {errorMessage} = require("./configs/error-handler.configs");
 const { logWithTime } = require("./utils/time-stamps.utils");
@@ -42,11 +42,7 @@ async function init(){ // To use await we need to make function Asynchronous
         }
         else{ // Since findOne returns null when no user found this statement will execute if no Admin User exists
             try{
-                const adminUser = await getAdminUserObject(); 
-                const user = await prisma.user.create({
-                    data: adminUser
-                });
-                logWithTime("👑 Admin User Created Successfully");
+                await createAdminUserIfNotExists(); 
                 /*
                 const accessToken = await makeTokenWithPrismaIDForAdmin(user,expiryTimeOfAccessToken);
                 if(accessToken){
@@ -66,10 +62,6 @@ async function init(){ // To use await we need to make function Asynchronous
                     await adminAuthLogForSetUp(user, authLogEvents.LOGIN, null);
                 }
                 */
-                logWithTime("Admin User details are given below:- ");
-                console.log(user);
-                // Update data into auth.logs
-                await adminAuthLogForSetUp(user, authLogEvents.REGISTER, null);
             }catch(err){
                 logWithTime("⚠️ Error Occured while Creating an Admin User");
                 errorMessage(err);
