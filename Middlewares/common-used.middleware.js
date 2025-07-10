@@ -1,6 +1,6 @@
 // Extracting the Required Modules
 const jwt = require("jsonwebtoken");
-const UserModel = require("../models/user.model");
+const prisma = require("../clients/public.prisma");
 const { UUID_V4_REGEX } = require("../configs/regex.config");
 // Extracting Required Functions and Values
 

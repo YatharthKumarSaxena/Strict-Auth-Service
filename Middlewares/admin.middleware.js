@@ -3,7 +3,6 @@
 const { throwResourceNotFoundError, errorMessage, throwInternalServerError, logMiddlewareError, getLogIdentifiers } = require("../configs/error-handler.configs");
 const { logWithTime } = require("../utils/time-stamps.utils");
 const { validateSingleIdentifier } = require("../utils/auth.utils");
-const { AdminActionReasons } = require("../configs/user-id.config");
 
 // Verify Admin Body Request for Blocking / Unblocking a user
 const verifyAdminBlockUnblockBody = async(req,res,next) => {
@@ -25,7 +24,7 @@ const verifyAdminBlockUnblockBody = async(req,res,next) => {
         // Very next line should be:
         if (!res.headersSent) return next();
     }catch(err){
-        const userID = req.foundUser.userID || "Unauthorized User";
+        const userID = req?.foundUser?.userID || "Unauthorized User";
         const getIdentifiers = getLogIdentifiers(req);
         logWithTime(`❌ Internal Error occurred while verifying the Admin Body Request (${getIdentifiers}) on user with userID: (${userID})`);
         errorMessage(err);
@@ -48,7 +47,7 @@ const verifyAdminCheckUserSessionsBody = async(req,res,next) => {
         // Very next line should be:
         if (!res.headersSent) return next();
     }catch(err){
-        const userID = req.foundUser.userID || "Unauthorized User";
+        const userID = req?.foundUser?.userID || "Unauthorized User";
         const getIdentifiers = getLogIdentifiers(req);
         logWithTime(`❌ Internal Error occurred while verifying the Admin Body Request (${getIdentifiers}) on user with userID: (${userID})`);
         errorMessage(err);

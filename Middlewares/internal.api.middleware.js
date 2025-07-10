@@ -1,7 +1,6 @@
 const { errorMessage, throwInternalServerError, throwAccessDeniedError, throwResourceNotFoundError, getLogIdentifiers, logMiddlewareError } = require("../configs/error-handler.configs");
 const { logWithTime } = require("../utils/time-stamps.utils");
-const { AdminActionReasons } = require("../configs/user-id.config");
-const { immutableFields } = require("../configs/user-enums.config");
+const { IMMUTABLE_FIELDS, ADMIN_ACTION_REASONS } = require("../configs/user-enums.config");
 const { validateSingleIdentifier } = require("../utils/auth.utils");
 const { OK, FORBIDDEN } = require("../configs/http-status.config");
 const { fetchUser } = require("./helper.middleware");
@@ -22,14 +21,14 @@ const checkUpdateMyProfileRequest = (req,res,next) => {
         }
         // 🚫 Fields Not Allowed to Be Modified
         let attemptedFields = [];
-        for (let field of immutableFields) {
+        for (let field of IMMUTABLE_FIELDS) {
             if (field in req.body) {
                 attemptedFields.push(field);
             }
         }
         if (attemptedFields.length > 0) {
             const userID = req.user?.userID || "UNKNOWN_USER";
-            logWithTime(`[SECURITY] 🚨 Attempt to modify ${attemptedFields.length} restricted fields by ${userID} [${req.deviceID}]`, "warn");
+            logWithTime(`[SECURITY] 🚨 Attempt to modify restricted fields (${attemptedFields.join(", ")}) by ${userID} from device ${req.deviceID}`);
             return res.status(FORBIDDEN).json({
                 success: false,
                 message: `⚠️ You are not allowed to update some profile fields.`,
@@ -58,13 +57,13 @@ const verifyAdminUserViewRequest = async(req,res,next) => {
         // Check that Provided Reason is Valid or not
         const reason = req.query.reason.trim();
         // 🔒 Validate whether the reason is one of the valid enums
-        if (!Object.values(AdminActionReasons).includes(reason)) {
-            logMiddlewareError("Verify Admin User View Request, Invalid Admin Action Reason Provided",req);
-            return throwAccessDeniedError(res,"Reason provided. Allowed reasons are: " + Object.values(AdminActionReasons).join(", "))
+        if (!Object.values(ADMIN_ACTION_REASONS).includes(reason)) {
+            logMiddlewareError(`Invalid reason "${reason}" provided by Admin during User View Request`, req);
+            return throwAccessDeniedError(res,"Reason provided. Allowed reasons are: " + Object.values(ADMIN_ACTION_REASONS).join(", "))
         }
         const verifyWith = await fetchUser(req,res);
         if(verifyWith === "")return;
-        logWithTime(`🔍 Admin with id: (${req.user.userID})tried to check User Details of User having UserID: (${req.foundUser.userID}) with reason: (${req.query.reason}) from device having device ID: (${req.deviceID})`);
+        logWithTime(`🔍 Admin with id: (${req.user.userID}) tried to check User Details of User having UserID: (${req.foundUser.userID}) with reason: (${req.query.reason}) from device having device ID: (${req.deviceID})`);
         if(!res.headersSent)return next();
     }catch(err){
         const getIdentifiers = getLogIdentifiers(req);
