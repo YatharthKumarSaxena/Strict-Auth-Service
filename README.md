@@ -1,6 +1,6 @@
 # 📘 Custom Authentication Service
 
-Welcome to the **Custom Authentication Service**, a secure and scalable backend authentication system engineered using **Node.js**, **Express.js**, and **MongoDB**, designed with industry-grade practices such as **Rate Limiting**, **Multi-Device Tracking**, and **Token Rotation (JWT)**. This project is structured with modularity, reusability, and production-readiness in mind, powered by real-world system design and software engineering principles.
+Welcome to the **Custom Authentication Service**, a secure and scalable backend authentication system engineered using **Node.js**, **Express.js**, and **MongoDB**, designed with industry-grade practices such as **Rate Limiting**, **Single-Device Tracking**, and **Token Rotation (JWT)**. This project is structured with modularity, reusability, and production-readiness in mind, powered by real-world system design and software engineering principles.
 
 ---
 
@@ -21,13 +21,13 @@ Welcome to the **Custom Authentication Service**, a secure and scalable backend 
 ## 📖 **Introduction**
 
 This monolithic authentication backend is engineered to support:
-- Account creation & secure admin bootstrapping
-- Multi-device tracking via `deviceID`
+- Secure account creation with **single active session per user**
 - Refresh and access token generation with custom expiry
 - Custom JWT validation middleware
 - Admin auto-creation at server start
 - Per-device rate limiting for brute-force prevention
 - Intelligent logging for each action (e.g., sign in, sign out, register)
+- APIs to **block** or **unblock** device access manually (admin-controlled)
 
 The **entry point** for this project is [`server.js`](./server.js), where all major components are initialized including:
 - MongoDB connection
@@ -42,7 +42,7 @@ The **entry point** for this project is [`server.js`](./server.js), where all ma
 
 | 🔹 Feature                          | ✅ Implemented |
 |------------------------------------|----------------|
-| Multi-Device Login Tracking        | ✔️             |
+| **Single-Device Login Enforcement**| ✔️             |
 | JWT Token Generation & Rotation    | ✔️             |
 | Rate Limiting per Device & Route   | ✔️             |
 | Admin Auto-Creation at Startup     | ✔️             |
@@ -51,7 +51,7 @@ The **entry point** for this project is [`server.js`](./server.js), where all ma
 | Cookie Parser + JSON Body Parsing | ✔️             |
 | Cron Job Integration               | ✔️             |
 | Intelligent 404 Rate Monitoring    | ✔️             |
-| Device-Based Refresh Token Logic   | ✔️             |
+| **Block/Unblock Device API**       | ✔️             |
 
 ---
 
@@ -59,7 +59,7 @@ The **entry point** for this project is [`server.js`](./server.js), where all ma
 
 - **Node.js**: Runtime
 - **Express.js**: Web framework
-- **MongoDB + Mongoose**: NoSQL DB with schema modeling
+- **MongoDB + Prisma**: NoSQL DB with schema modeling
 - **JWT**: Token-based authentication
 - **dotenv**: Environment config management
 - **cookie-parser**: For handling cookies
@@ -104,7 +104,7 @@ The **entry point** for this project is [`server.js`](./server.js), where all ma
 | 📁 `utils/`            | Utility functions like token creation, logs  |
 | 📁 `services/`         | Handles internal logic like limiter service  |
 | 📁 `routes/`           | Route entry-point for all modules            |
-| 📁 `models/`           | MongoDB schemas: User, Auth Logs             |
+| 📁 `prisma/`           | Prisma schema and database access layer      |
 | 📁 `cron-jobs/`        | Server-triggered tasks on boot               |
 | 📁 `internal-calls/`   | For internal microservice/API interaction    |
 | 📁 `node_modules/`     | Auto-installed dependencies (ignored in Git) |
@@ -123,123 +123,34 @@ The **entry point** for this project is [`server.js`](./server.js), where all ma
 
 ## 🛠️ **Environment Variables**
 
-All sensitive credentials and project configurations are handled using environment variables. These variables are not committed for security reasons, but a complete structure is provided in the [`.env.example`](./.env.example) file.
-
-Each environment variable plays a crucial role in how this service runs. Below is a breakdown of the major groups and their responsibilities:
-
-### 🔹 Server Configuration
-Used to set the port on which the server will run locally or in production.
-- `PORT_NUMBER`
-
-### 🔹 MongoDB Database
-Defines the local database name and MongoDB connection URI.
-- `DB_NAME`
-- `DB_URL`
-
-### 🔹 JWT Token System
-Handles the secure issuance and expiry of both access and refresh tokens, including token rotation threshold.
-- `ACCESS_TOKEN_SECRET_CODE`
-- `REFRESH_TOKEN_SECRET_CODE`
-- `ACCESS_TOKEN_EXPIRY`
-- `REFRESH_TOKEN_EXPIRY`
-- `REFRESH_THRESHOLD_IN_MS`
-
-### 🔹 Bcrypt Password Hashing
-Specifies the salt rounds used for secure password encryption.
-- `SALT`
-
-### 🔹 Admin User Bootstrap
-At startup, the system auto-creates a default admin user using these credentials.
-- `ADMIN_NAME`
-- `ADMIN_COUNTRY_CODE`
-- `ADMIN_NUMBER`
-- `ADMIN_FULL_PHONE_NUMBER`
-- `ADMIN_EMAIL_ID`
-- `ADMIN_PASSWORD` (already hashed using bcrypt)
-- `ADMIN_USER_ID`
-
-### 🔹 System Infrastructure Settings
-Used to define instance-specific capacity and IP-code logic.
-- `IP_ADDRESS_CODE`
-- `USER_REGISTRATION_CAPACITY`
-
-### 🔹 Cookie Policy
-Sets client cookie behaviors for session management. Values should change between development and production environments.
-- `COOKIE_HTTP_ONLY`
-- `COOKIE_SECURE`
-- `COOKIE_SAME_SITE`
-- `COOKIE_DOMAIN`
-
-### 🔹 Device Identification (for Testing)
-Used to simulate real-world testing with device-based rate limiting and refresh token storage.
-- `DEVICE_UUID`
-- `DEVICE_TYPE`
-- `DEVICE_NAME`
-
-### 🔹 Auth & User Cleanup Cron Jobs
-These are automated scheduled tasks that run weekly to clean up outdated logs or inactive users.
-- `AUTH_LOG_CLEANUP_CRON`
-- `AUTH_LOG_CLEANUP_TIMEZONE`
-- `AUTH_LOG_RETENTION_DAYS`
-- `USER_CLEANUP_CRON`
-- `USER_CLEANUP_TIMEZONE`
-- `USER_RETENTION_DAYS`
-
-### 🔹 App Environment Mode
-Defines the execution environment (`development` | `production`).
-- `NODE_ENV`
-
-> 📌 Make sure to copy `.env.example` and rename it to `.env` before running the application. Fill in appropriate secrets and values as needed for your machine.
+(*Same as earlier — no changes required unless new secrets are introduced for block/unblock APIs.*)
 
 ---
 
 ## 🚦 **Rate Limiting Logic**
 
-This system implements **device-based** and **route-specific** rate limiting to prevent abuse, brute-force attacks, and excessive invalid requests.
+The logic remains focused on **device-based** tracking, but now it enforces **single device session per user**. If the user tries to log in from another device, the older one is invalidated unless explicitly logged out.
 
-### 📌 Highlights:
-- Every incoming request includes a `deviceID` (from request headers).
-- If the device is not recognized or is hitting **unknown/unauthorized endpoints**, it’s still tracked.
-- Each device-route combination has its own limit logic.
+Also:
+- Devices can be **blocked manually** by the admin using the block device API.
+- Blocked devices are prevented from making any further requests unless unblocked.
 
-### 🧠 How it Works:
-- Rate limit metadata is stored in MongoDB per device and route.
-- If a device crosses its threshold within a specific time window (e.g., 60 seconds), it is **temporarily blocked**.
-- The system sends a `Retry-After` header to inform clients when they can retry.
-- Smart logging ensures that no request gets dropped silently — even invalid paths get monitored and tracked.
-
-> This also helps during attacks where bots attempt undefined endpoints to exploit the backend.
+> DeviceID plays a critical role in both **rate limiting** and **access enforcement**.
 
 ---
 
 ## 🧪 **Testing Strategy**
 
-This project was thoroughly tested via **Postman**, ensuring real-world scenarios like:
+In addition to earlier cases, following have been tested:
 
-### 🔐 Authentication Tests:
-- ✅ Registering a user with phone/email
-- ✅ Signing in on multiple devices
-- ✅ Logout from one or all devices
-- ✅ Token expiration and refresh
-
-### ⚠️ Security Tests:
-- ✅ Attempted login with wrong credentials
-- ✅ Tampered JWTs
-- ✅ Missing/Invalid deviceID in headers
-- ✅ Repeated requests to unauthorized endpoints
-
-### 🧪 Behavior Tests:
-- ✅ Cron jobs triggering on time
-- ✅ Admin bootstrapping on server restart
-- ✅ Logs created and pruned as expected
-
-> In future, automated test suites (like Jest + Supertest) can be integrated for CI/CD pipelines.
+### 📛 Device Blocking Tests:
+- ✅ Access denied from blocked device
+- ✅ Unblock restores access
+- ✅ Attempt to use refresh token from blocked device is rejected
 
 ---
 
 ## 🧬 **Planned Enhancements**
-
-Even though the system is fully functional, the following improvements are under consideration for future versions:
 
 | 🔮 Enhancement                     | Priority | Notes |
 |----------------------------------|----------|-------|
@@ -253,16 +164,15 @@ Even though the system is fully functional, the following improvements are under
 
 ## 🎯 **Final Takeaway**
 
-This project reflects a **deep understanding of authentication systems**, **production-level design thinking**, and **scalable backend engineering**. The goal wasn’t just to build an auth system, but to simulate the real-life challenges and decisions involved in developing a secure, intelligent, and maintainable authentication layer.
+This updated Strict Auth backend narrows down to a **single-device secure session system**, eliminating ambiguity and enabling administrators to **control device access** through direct APIs. It simulates the authentication needs of **banking apps**, **sensitive enterprise tools**, or **IoT platforms**, where **session control** and **device-level trust** are paramount.
 
 ### 💡 What You’ll Learn from This Repo:
-- How to issue and rotate secure JWTs
-- How to bootstrap admin users safely
-- How to scale multi-device login systems
-- How to implement custom rate limiting logic
-- How to structure Node.js projects with clean separation of concerns
+- How to restrict user login to one device at a time
+- How to implement manual device blocking logic
+- How to scale secure auth systems for production
+- How to track request behavior route-by-route per device
+- How to enforce token validity even after logout or block
 
 ---
 
-> 📍 Feel free to clone, fork, or adapt this architecture to your own real-world applications.  
-> Designed & Engineered by **Yatharth Kumar Saxena** 🚀
+> 📍 Designed & Engineered with Precision by **Yatharth Kumar Saxena** 🚀
