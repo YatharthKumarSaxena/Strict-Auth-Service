@@ -28,9 +28,11 @@ const createRateLimiter = (maxRequests, timeWindowInMs) => {
         return res.status(NOT_FOUND).json({ message: "User not found." });
       }
 
-      const device = user.device;
+      const device = await prisma.device.findUnique({
+        where: { deviceID: req.deviceID },
+      });
 
-      if (!device || req.deviceID !== device.deviceID) {
+      if (!device || device.userID !== user.userID) {
         logWithTime(`User (${user.userID}) is doing action from invalid device id: (${req.deviceID})`);
         return res.status(NOT_FOUND).json({ message: "Device not registered." });
       }
