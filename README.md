@@ -1,6 +1,6 @@
-# 📘 Custom Authentication Service
+# 📘 Strict Authentication Service
 
-Welcome to the **Custom Authentication Service**, a secure and scalable backend authentication system engineered using **Node.js**, **Express.js**, and **MongoDB**, designed with industry-grade practices such as **Rate Limiting**, **Single-Device Tracking**, and **Token Rotation (JWT)**. This project is structured with modularity, reusability, and production-readiness in mind, powered by real-world system design and software engineering principles.
+Welcome to the **Strict Authentication Service**, a secure and scalable backend authentication system engineered using **Node.js**, **Express.js**, and **PostgreSQL**, designed with industry-grade practices such as **Rate Limiting**, **Single-Device Tracking**, and **Token Rotation (JWT)**. This project is structured with modularity, reusability, and production-readiness in mind, powered by real-world system design and software engineering principles.
 
 ---
 
