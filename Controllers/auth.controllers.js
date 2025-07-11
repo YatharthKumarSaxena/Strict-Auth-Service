@@ -221,7 +221,7 @@ const signUp = async (req,res) => { // Made this function async to use await
             return res.status(CREATED).json({
                 success: true,
                 message: "Congratulations, Your Registration is Done Successfully :- ",
-                notice:- "This Device is linked to another user so you cannot login on this device",
+                notice: "This Device is linked to another user so you cannot login on this device",
                 userDisplayDetails,
             });
         }
@@ -291,7 +291,7 @@ const signIn = async (req,res) => {
         req.user = user;
         // ✅ Now Check if User is Already Logged In
         await checkUserIsNotVerified(req,res);
-        const checkDeviceLimit = checkUserDeviceLimit(req,res);
+        const checkDeviceLimit = await checkUserDeviceLimit(req,res);
         if(checkDeviceLimit)return;
         const isThresholdCrossed = await checkDeviceThreshold(req.deviceID,res);
         if(isThresholdCrossed){

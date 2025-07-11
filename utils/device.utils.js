@@ -17,18 +17,31 @@ const getDeviceByID = async (user, deviceID) => {
     return null;
 };
 
-const checkUserDeviceLimit = (req,res) => {
-    const user = req.user || req.foundUser;
-    if (user.device) {
-        logWithTime(`Login Request Denied as User (${user.userID}) is logged in on another device. Request is made from deviceID: (${req.deviceID})`);
-        res.status(FORBIDDEN).json({ 
-            success: false,
-            message: "❌ You are logged in on another device. Please logout from that device." 
+const checkUserDeviceLimit = async (req, res) => {
+    try {
+        const user = await prisma.user.findUnique({
+            where: { userID: req.user.userID },
+            include: { device: true },
         });
-        return true;
+
+        if (user.device) {
+            logWithTime(`Login Request Denied as User (${user.userID}) is logged in on another device. Request is made from deviceID: (${req.deviceID})`);
+            res.status(FORBIDDEN).json({
+                success: false,
+                message: "❌ You are logged in on another device. Please logout from that device."
+            });
+            return true;
+        }
+
+        return false;
+    } catch (err) {
+        logWithTime(`❌ Error while checking existing device for User (${req.user?.userID})`);
+        errorMessage(err);
+        throwInternalServerError(res);
+        return true; // Block login as a safe fallback
     }
-    return false;
-}
+};
+
 
 const checkDeviceThreshold = async (deviceID,res) => {
     try {
