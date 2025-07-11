@@ -107,14 +107,14 @@ model RateLimit {
 }
 
 model DeviceBlock {
-  deviceID    String    @id // Primary key – Device UUID
-  isBlocked   Boolean   @default(false) // Current status
-  blockedAt   DateTime? // When it was blocked
-  unblockedAt DateTime? // When it was unblocked
-  blockedBy   String? // Admin userID who blocked
-  unblockedBy String? // Admin userID who unblocked
-  blockReason        DeviceBlockReason?
-  unblockReason      DeviceUnblockReason?
+  deviceID      String               @id // Primary key – Device UUID
+  isBlocked     Boolean              @default(false) // Current status
+  blockedAt     DateTime? // When it was blocked
+  unblockedAt   DateTime? // When it was unblocked
+  blockedBy     String? // Admin userID who blocked
+  unblockedBy   String? // Admin userID who unblocked
+  blockReason   DeviceBlockReason?
+  unblockReason DeviceUnblockReason?
 
   // Optional: for traceability
   createdAt DateTime @default(now())
