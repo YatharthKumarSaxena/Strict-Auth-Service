@@ -5,17 +5,16 @@ const { FORBIDDEN } = require("../configs/http-status.config");
 
 // 📦 Utility to get a device from user's device by deviceID
 const getDeviceByID = async (user, deviceID) => {
-    // 🛠 Re-fetch fresh user from DB to ensure up-to-date device list
-    user = await prisma.user.findUnique({
-        where:{ userID: user.userID },
-        include: { device: true }
+    const device = await prisma.device.findUnique({
+        where: { deviceID: deviceID }
     });
-    // 🔍 Check if device not exist
-    if (!user?.device) return null;
-    // 🔎 Check device belongs to User or not
-    if (user.device && user.device.deviceID === deviceID)return user.device;
-    return null;
+
+    if (!device) return null;
+
+    // 🔐 Ensure the device actually belongs to the given user
+    return device.userID === user.userID ? device : null;
 };
+
 
 const checkUserDeviceLimit = async (req, res) => {
     try {
