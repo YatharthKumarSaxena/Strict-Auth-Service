@@ -24,7 +24,7 @@ const verifySignUpBody = async (req,res,next) =>{
             return throwResourceNotFoundError(res,"SignUp Body");
         }
         let {name,emailID,phoneNumber,password} = req.body;
-        if(emailID)emailID = emailID.trim();
+        if(emailID)emailID = emailID.trim().toLowerCase();;
         if(password)password = password.trim();
         // Check name is present in Request Body or not
         if(name)name = name.trim();

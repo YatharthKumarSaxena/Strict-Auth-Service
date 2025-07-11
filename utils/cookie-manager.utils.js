@@ -11,7 +11,7 @@ const setAccessTokenCookie = (res, token) => {
             httpOnly: httpOnly,
             sameSite: sameSite,
             secure: secure,
-            maxAge: expiryTimeOfAccessToken
+            maxAge: expiryTimeOfAccessToken * 1000
         });
         logWithTime(`🍪 Access Token Cookie Set`);
         return true;

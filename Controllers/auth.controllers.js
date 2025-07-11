@@ -15,10 +15,10 @@ const { makeTokenWithPrismaID } = require("../utils/issue-token.utils");
 const { checkPasswordIsValid, createFullPhoneNumber,  checkAndAbortIfUserExists } = require("../utils/auth.utils");
 const { signInWithToken } = require("../services/token.service");
 const { makeUserID } = require("../services/userID.service");
-const { createDevice, getDeviceByID, checkDeviceThreshold, checkUserDeviceLimit } = require("../utils/device.utils");
+const { createDevice, checkDeviceThreshold, checkUserDeviceLimit } = require("../utils/device.utils");
 const { logAuthEvent } =require("../utils/auth-log-utils");
 const { setAccessTokenCookie, clearAccessTokenCookie } = require("../utils/cookie-manager.utils");
-const { CREATED, INSUFFICIENT_STORAGE, INTERNAL_ERROR, OK } = require("../configs/http-status.config");
+const { CREATED, INSUFFICIENT_STORAGE, INTERNAL_ERROR, OK, FORBIDDEN } = require("../configs/http-status.config");
 const authLogEvents = require("../configs/auth-log-events.config");
 const prisma = require("../clients/public.prisma")
 
@@ -147,7 +147,7 @@ const signUp = async (req,res) => { // Made this function async to use await
     if(!newNumber)return;
     
     // Checking User already exists or not 
-    const userExist = await checkAndAbortIfUserExists(emailID.trim().toLowerCase(), newNumber, res);
+    const userExist = await checkAndAbortIfUserExists(emailID, newNumber, res);
     if(userExist)return;
     const password = await bcryptjs.hash(request_body.password, SALT); // Password is Encrypted
 
@@ -168,9 +168,6 @@ const signUp = async (req,res) => { // Made this function async to use await
     }
 
     const { countryCode,number } = request_body.phoneNumber;
-    if(request_body.name){
-        user.name = request_body.name;
-    }
     try{
         const user = await prisma.user.create({
             data: {
@@ -181,6 +178,14 @@ const signUp = async (req,res) => { // Made this function async to use await
                 name: request_body.name || undefined
             }
         });
+        if(request_body.name){
+            await prisma.user.update({
+                where: {userID: generatedUserID},
+                data: {
+                    name: request_body.name
+                }
+            })
+        }
         logWithTime(`🟢 User (${user.userID}) Created Successfully`);
         await prisma.phoneNumber.create({
             data: {
@@ -191,19 +196,12 @@ const signUp = async (req,res) => { // Made this function async to use await
         });
         logWithTime(`🟢 Phone Number (${user.fullPhoneNumber}) is linked successfully to User (${user.userID})`);
         req.user = user;
-        const device = await createDevice(req,res);
-        if(!device){
-            logWithTime(`❌ Device creation failed for User for device id: (${req.deviceID}) at the time of Sign Up Request`);
-            return throwInternalServerError(res);
-        }
-        logWithTime(`🟢 Device ID (${req.deviceID}) is linked successfully to User (${user.userID})`);
         const userGeneralDetails = {
             emailID: user.emailID,
             userID: user.userID,
             fullPhoneNumber: newNumber,
             userType: user.userType,
-            createdAt: user.createdAt,
-            device: device
+            createdAt: user.createdAt
         }
         if(user.name)userGeneralDetails.name = request_body.name;
         // Update data into auth.logs
@@ -219,8 +217,21 @@ const signUp = async (req,res) => { // Made this function async to use await
         console.log(userGeneralDetails);
         // Before Automatic Login Just verify that device threshold has not exceeded
         const isThresholdCrossed = await checkDeviceThreshold(req.deviceID,res);
-        if(isThresholdCrossed)return;
-        // Refresh Token Generation
+        if(isThresholdCrossed){
+            return res.status(CREATED).json({
+                success: true,
+                message: "Congratulations, Your Registration is Done Successfully :- ",
+                notice:- "This Device is linked to another user so you cannot login on this device",
+                userDisplayDetails,
+            });
+        }
+        const device = await createDevice(req,res);
+        if(!device){
+            logWithTime(`❌ Device creation failed for User for device id: (${req.deviceID}) at the time of Sign Up Request`);
+            return throwInternalServerError(res);
+        }
+        logWithTime(`🟢 Device ID (${req.deviceID}) is linked successfully to User (${user.userID})`);
+        // Access Token Generation
         const accessToken = await makeTokenWithPrismaID(req,res);
         if(!accessToken){
             logWithTime(`❌ Access Token generation failed after successful registration for User (${user.userID})!. User registered from device id: (${req.deviceID})`);
@@ -280,8 +291,15 @@ const signIn = async (req,res) => {
         req.user = user;
         // ✅ Now Check if User is Already Logged In
         await checkUserIsNotVerified(req,res);
-        const isThresholdCrossed = (await checkDeviceThreshold(req.deviceID,res) || checkUserDeviceLimit(req,res));
-        if(isThresholdCrossed)return;
+        const checkDeviceLimit = checkUserDeviceLimit(req,res);
+        if(checkDeviceLimit)return;
+        const isThresholdCrossed = await checkDeviceThreshold(req.deviceID,res);
+        if(isThresholdCrossed){
+            return res.status(FORBIDDEN).json({
+                success: false,
+                message: "❌ Device limit reached. A user is already signed in on this device."
+            });
+        }
         // Check Password is Correct or Not
         let isPasswordValid = await checkPasswordIsValid(req,user);
         if(isPasswordValid){ // Login the User

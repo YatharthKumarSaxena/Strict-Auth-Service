@@ -30,7 +30,7 @@ const checkUserDeviceLimit = (req,res) => {
     return false;
 }
 
-const checkDeviceThreshold = async (deviceID, res) => {
+const checkDeviceThreshold = async (deviceID,res) => {
     try {
 
         const usersUsingDevice = await prisma.device.findUnique({
@@ -39,10 +39,6 @@ const checkDeviceThreshold = async (deviceID, res) => {
 
         if (usersUsingDevice) {
             logWithTime(`🛑 Device Threshold Exceeded: Device (${deviceID}) is already linked with one user.`);
-            res.status(FORBIDDEN).json({
-                success: false,
-                message: "❌ Device limit reached. A user is already signed in on this device."
-            });
             return true;
         }
         return false;
