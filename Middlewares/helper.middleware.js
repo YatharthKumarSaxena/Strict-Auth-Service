@@ -39,7 +39,7 @@ const fetchUser = async(req,res) =>{
         if(req?.query?.userID){
             const userID = req.query.userID.trim();
             const validateUserID = checkUserID(userID,req,res);
-            if(!validateUserID)return;
+            if(!validateUserID)return verifyWith;
             user = await prisma.user.findUnique({
                 where: {userID: userID}
             });
@@ -50,7 +50,7 @@ const fetchUser = async(req,res) =>{
         else if (req?.query?.emailID){
             const emailID = req.query.emailID.trim().toLowerCase();
             const validateEmailID = checkEmailID(emailID,req,res);
-            if(!validateEmailID)return;
+            if(!validateEmailID)return verifyWith;
             user = await prisma.user.findUnique({
                 where: {emailID: emailID}
             });
@@ -61,7 +61,7 @@ const fetchUser = async(req,res) =>{
         else if (req?.query?.fullPhoneNumber){
             const fullPhoneNumber = req.query.fullPhoneNumber.trim();
             const validatePhoneNumber = checkFullPhoneNumber(fullPhoneNumber,req,res);
-            if(!validatePhoneNumber)return;
+            if(!validatePhoneNumber)return verifyWith;
             user = await prisma.user.findUnique({
                 where: {fullPhoneNumber: fullPhoneNumber}
             });
@@ -72,7 +72,7 @@ const fetchUser = async(req,res) =>{
         else if(req?.body?.userID){
             const userID = req.body.userID.trim();
             const validateUserID = checkUserID(userID,req,res);
-            if(!validateUserID)return;
+            if(!validateUserID)return verifyWith;
             user = await prisma.user.findUnique({
                 where: {userID: req.body.userID.trim()}
             });
@@ -82,7 +82,7 @@ const fetchUser = async(req,res) =>{
         }else if(req?.body?.emailID){
             const emailID = req.body.emailID.trim().toLowerCase();
             const validateEmailID = checkEmailID(emailID,req,res);
-            if(!validateEmailID)return;
+            if(!validateEmailID)return verifyWith;
             user = await prisma.user.findUnique({
                 where: {emailID: req.body.emailID.trim().toLowerCase()}
             });
@@ -92,7 +92,7 @@ const fetchUser = async(req,res) =>{
         }else if(req?.body?.fullPhoneNumber){
             const fullPhoneNumber = req.body.fullPhoneNumber.trim();
             const validatePhoneNumber = checkFullPhoneNumber(fullPhoneNumber,req,res);
-            if(!validatePhoneNumber)return;
+            if(!validatePhoneNumber)return verifyWith;
             user = await prisma.user.findUnique({
                 where: {fullPhoneNumber: fullPhoneNumber}
             });

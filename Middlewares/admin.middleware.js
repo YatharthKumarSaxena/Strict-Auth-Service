@@ -49,7 +49,7 @@ const verifyAdminBlockUnblockDeviceBody = async(req,res,next) => {
             logMiddlewareError("Block/Unblock Device, Missing Device Details i.e Device ID to be blocked/unblocked",req);
             return throwResourceNotFoundError(res,"Device ID");
         }
-        if(!isValidRegex(req.deviceID,UUID_V4_REGEX)){
+        if(!isValidRegex(req.body.deviceID,UUID_V4_REGEX)){
             logMiddlewareError("Block/Unblock Device, Invalid Device ID Format to be blocked/unblocked",req);
             return throwInvalidResourceError(res,"Device ID, Please provide a valid device id format");          
         }
