@@ -2,15 +2,13 @@
 
 const { logWithTime } = require("../utils/time-stamps.utils");
 const { setAccessTokenCookie } = require("../utils/cookie-manager.utils");
-const { throwInternalServerError, errorMessage, throwInvalidResourceError, throwResourceNotFoundError, getLogIdentifiers } =  require("../configs/error-handler.configs");
-const { emailRegex, nameRegex, countryCodeRegex, numberRegex} = require("../configs/regex.config");
+const { throwInternalServerError, errorMessage, throwResourceNotFoundError, getLogIdentifiers } =  require("../configs/error-handler.configs");
 const { logAuthEvent } = require("../utils/auth-log-utils");
 const { OK } = require("../configs/http-status.config");
-const { validateLength, isValidRegex } = require("../utils/field-validators");
 const { createFullPhoneNumber,  checkAndAbortIfUserExists } = require("../utils/auth.utils");
-const { nameLength, emailLength, countryCodeLength, phoneNumberLength} = require("../configs/fields-length.config");
 const prisma = require("../clients/public.prisma");
 const authLogEvents = require("../configs/auth-log-events.config");
+const { isValidCountryCode, isValidNumber, isValidEmail, isValidName } = require("../utils/user-validators.utils");
 
 const updateUserProfile = async(req,res) => {
     try{
@@ -18,14 +16,8 @@ const updateUserProfile = async(req,res) => {
         const user = req.user;
         if(req.body.name && req.body.name !== user.name){
             const name = req.body.name.trim();
-            if(!validateLength(name,nameLength.min,nameLength.max)){
-              logWithTime(`Invalid Name Length provided by ${req.user.userID} to update name`);
-              return throwInvalidResourceError(res,`Name. Name must be between ${nameLength.min} and ${nameLength.max} characters.`);
-            }
-            if(!isValidRegex(name,nameRegex)){
-              logWithTime(`Invalid Name Format provided by ${req.user.userID} to update name`);
-              return throwInvalidResourceError(res,"Name. Name can only include letters, spaces, apostrophes ('), periods (.), and hyphens (-).");
-            }
+            const isNameValid = isValidName(name,res);
+            if(!isNameValid)return;
             updatedFields.push("Name");
             await prisma.user.update({
               where: {userID: user.userID},
@@ -34,14 +26,8 @@ const updateUserProfile = async(req,res) => {
         }
         if(req.body.emailID && req.body.emailID.trim().toLowerCase() !== user.emailID.trim().toLowerCase()){
             const emailID = req.body.emailID.trim().toLowerCase();
-            if (!validateLength(emailID,emailLength.min,emailLength.max)) {
-              logWithTime(`Invalid Email ID Length provided by ${req.user.userID} to update email ID`);
-              return throwInvalidResourceError(res, `Email ID, Email ID must be at least ${emailLength.min} characters long and not more than ${emailLength.max} characters`);
-            }
-            if(!isValidRegex(emailID,emailRegex)){
-              logWithTime(`Invalid Email ID Format provided by ${req.user.userID} to update email ID`);
-              return throwInvalidResourceError(res, "Email ID format. Email ID should have:- 🔹 Have no spaces,🔹 Contain exactly one @,🔹 Include a valid domain like .com, .in, etc.");
-            }      
+            const isEmailIDValid = isValidEmail(emailID,res);
+            if(!isEmailIDValid)return;
             // Checking User already exists or not 
             const userExist = await checkAndAbortIfUserExists(emailID,user.fullPhoneNumber,res);
             if(userExist)return;
@@ -56,17 +42,8 @@ const updateUserProfile = async(req,res) => {
           let { countryCode,number } = phoneNumber;
           if(countryCode && countryCode.trim() !== user.phoneNumber.countryCode){
             countryCode = countryCode.trim();
-            if(!validateLength(countryCode,countryCodeLength.min,countryCodeLength.max)){
-              logWithTime(`Invalid Country Code Length provided by ${req.user.userID} to update number in phone number`);
-              return throwInvalidResourceError(res, `Country Code length, Country Code length must be at least ${countryCodeLength.min} digits long and not more than ${countryCodeLength.max} digits`);
-            }
-            if(!isValidRegex(countryCode,countryCodeRegex)){
-              logWithTime(`Invalid Country Code Format provided by ${req.user.userID} to update Country Code in phone number`);
-              return throwInvalidResourceError(
-                res,
-                `Country Code Format, Please enter a valid international country code number not starting from 0 and consist only numeric digits (e.g., 1 || 91 || 78)`,
-              );
-            }
+            const isCountryCodeValid = isValidCountryCode(countryCode,res);
+            if(!isCountryCodeValid)return;
             updatedFields.push("Country Code in Phone Number");
             await prisma.phoneNumber.update({
               where: {userID: user.userID},
@@ -77,17 +54,8 @@ const updateUserProfile = async(req,res) => {
           }
           if(number && number.trim() !== user.phoneNumber.number){ 
             number = number.trim();
-            if(!validateLength(number,phoneNumberLength.min,phoneNumberLength.max)){
-              logWithTime(`Invalid Number Length provided by ${req.user.userID} to update number in phone number`);
-              return throwInvalidResourceError(res, `Number, Number must be at least ${phoneNumberLength.min} digits long and not more than ${phoneNumberLength.max} digits`);
-            }
-            if(!isValidRegex(number,numberRegex)){
-              logWithTime(`Invalid Number Format provided by ${req.user.userID} to update number in Phone Number`);
-              return throwInvalidResourceError(
-                res,
-                "Phone Number Format, Please enter a valid phone number that consist of only numeric digits .",
-              );
-            }
+            const isNumberValid = isValidNumber(number,res);
+            if(!isNumberValid)return;
             updatedFields.push("Number in Phone Number");
             await prisma.phoneNumber.update({
               where: {userID: user.userID},
