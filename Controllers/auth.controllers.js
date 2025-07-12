@@ -216,7 +216,7 @@ const signUp = async (req,res) => { // Made this function async to use await
         logWithTime("👤 New User Details:- ");
         console.log(userGeneralDetails);
         // Before Automatic Login Just verify that device threshold has not exceeded
-        const isThresholdCrossed = await checkDeviceThreshold(req.deviceID,res);
+        const isThresholdCrossed = await checkDeviceThreshold(req,res);
         if(isThresholdCrossed){
             return res.status(CREATED).json({
                 success: true,
@@ -293,7 +293,7 @@ const signIn = async (req,res) => {
         await checkUserIsNotVerified(req,res);
         const checkDeviceLimit = await checkUserDeviceLimit(req,res);
         if(checkDeviceLimit)return;
-        const isThresholdCrossed = await checkDeviceThreshold(req.deviceID,res);
+        const isThresholdCrossed = await checkDeviceThreshold(req,res);
         if(isThresholdCrossed){
             return res.status(FORBIDDEN).json({
                 success: false,
@@ -564,6 +564,7 @@ module.exports = {
     changePassword: changePassword,
     getMyActiveDevices: getMyActiveDevices,
     activateUserAccount: activateUserAccount,
+    logoutUserCompletely: logoutUserCompletely,
     deactivateUserAccount: deactivateUserAccount,
     checkUserIsNotVerified: checkUserIsNotVerified,
     provideUserAccountDetails: provideUserAccountDetails

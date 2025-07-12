@@ -2,6 +2,8 @@ const { logWithTime } = require("../utils/time-stamps.utils");
 const { errorMessage,throwInternalServerError } = require("../configs/error-handler.configs");
 const prisma = require("../clients/public.prisma");
 const { FORBIDDEN } = require("../configs/http-status.config");
+const { expiryTimeOfAccessToken } = require("../configs/security.config");
+const { logoutUserCompletely } = require("../controllers/auth.controllers")
 
 // 📦 Utility to get a device from user's device by deviceID
 const getDeviceByID = async (user, deviceID) => {
@@ -42,14 +44,30 @@ const checkUserDeviceLimit = async (req, res) => {
 };
 
 
-const checkDeviceThreshold = async (deviceID,res) => {
+const checkDeviceThreshold = async (req,res) => {
     try {
-
-        const usersUsingDevice = await prisma.device.findUnique({
+        const deviceID = req.deviceID;
+        const deviceUsed = await prisma.device.findUnique({
             where: { deviceID: deviceID }
         });
+        // Check the Session is Expired on this Device or not
+        const lastUsedTime = new Date(deviceUsed.lastUsedAt).getTime(); // In milli second current time is return
+        const currentTime = Date.now(); // In milli second current time is return
+        if(currentTime > lastUsedTime + expiryTimeOfAccessToken*1000){
+            const oldUserID = deviceUsed.userID;
 
-        if (usersUsingDevice) {
+            // 👇 Fetch old user from DB
+            const oldUser = await prisma.user.findUnique({ where: { userID: oldUserID } });
+
+            // 👋 Log out old user completely (pass dummy req/res if needed)
+            const isOldUserloggedOut = await logoutUserCompletely(oldUser, res, req, "device reassignment due to expiry");
+            if(!isOldUserloggedOut){
+                logWithTime(`🚫 Failed to logout old user (${oldUserID}) during reassignment of device (${deviceID})`);;
+                return true;
+            }
+            return false; // Threshold not exceeded now
+        }
+        if (deviceUsed) {
             logWithTime(`🛑 Device Threshold Exceeded: Device (${deviceID}) is already linked with one user.`);
             return true;
         }
