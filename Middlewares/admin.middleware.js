@@ -1,8 +1,10 @@
 // Middleware Code For Admin Controller
 
-const { throwResourceNotFoundError, errorMessage, throwInternalServerError, logMiddlewareError, getLogIdentifiers } = require("../configs/error-handler.configs");
+const { throwResourceNotFoundError, errorMessage, throwInternalServerError, logMiddlewareError, getLogIdentifiers, throwInvalidResourceError } = require("../configs/error-handler.configs");
 const { logWithTime } = require("../utils/time-stamps.utils");
 const { validateSingleIdentifier } = require("../utils/auth.utils");
+const { isValidRegex } = require("../utils/field-validators");
+const { UUID_V4_REGEX } = require("../configs/regex.config");
 
 // Verify Admin Body Request for Blocking / Unblocking a user
 const verifyAdminBlockUnblockBody = async(req,res,next) => {
@@ -40,12 +42,16 @@ const verifyAdminBlockUnblockDeviceBody = async(req,res,next) => {
             return throwResourceNotFoundError(res,"Body");
         }
         if(!req.body.reason){
-            logMiddlewareError("Block/Unblock Account, Missing Reason Field",req);
+            logMiddlewareError("Block/Unblock Device, Missing Reason Field",req);
             return throwResourceNotFoundError(res,"Reason");
         }
         if(!req.body.deviceID){
-            logMiddlewareError("Block/Unblock Account, Missing Device Details i.e Device ID to be blocked/unblocked",req);
+            logMiddlewareError("Block/Unblock Device, Missing Device Details i.e Device ID to be blocked/unblocked",req);
             return throwResourceNotFoundError(res,"Device ID");
+        }
+        if(!isValidRegex(req.deviceID,UUID_V4_REGEX)){
+            logMiddlewareError("Block/Unblock Device, Invalid Device ID Format to be blocked/unblocked",req);
+            return throwInvalidResourceError(res,"Device ID, Please provide a valid device id format");          
         }
         // Very next line should be:
         if (!res.headersSent) return next();
