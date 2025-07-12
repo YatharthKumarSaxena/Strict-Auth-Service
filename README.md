@@ -30,7 +30,7 @@ This monolithic authentication backend is engineered to support:
 - APIs to **block** or **unblock** device access manually (admin-controlled)
 
 The **entry point** for this project is [`server.js`](./server.js), where all major components are initialized including:
-- MongoDB connection
+- PostgreSQL connection
 - Admin account bootstrap
 - Centralized route mounting
 - Global error and 404 handling
@@ -40,15 +40,15 @@ The **entry point** for this project is [`server.js`](./server.js), where all ma
 
 ## 🧪 **Features**
 
-| 🔹 Feature                          | ✅ Implemented |
-|------------------------------------|----------------|
+| 🔹 Feature                         | ✅ Implemented |
+|------------------------------------|---------------- |
 | **Single-Device Login Enforcement**| ✔️             |
-| JWT Token Generation & Rotation    | ✔️             |
+| JWT Token Generation               | ✔️             |
 | Rate Limiting per Device & Route   | ✔️             |
 | Admin Auto-Creation at Startup     | ✔️             |
 | Authentication Logs                | ✔️             |
 | Centralized Error Handling         | ✔️             |
-| Cookie Parser + JSON Body Parsing | ✔️             |
+| Cookie Parser + JSON Body Parsing  | ✔️             |
 | Cron Job Integration               | ✔️             |
 | Intelligent 404 Rate Monitoring    | ✔️             |
 | **Block/Unblock Device API**       | ✔️             |
@@ -59,7 +59,7 @@ The **entry point** for this project is [`server.js`](./server.js), where all ma
 
 - **Node.js**: Runtime
 - **Express.js**: Web framework
-- **MongoDB + Prisma**: NoSQL DB with schema modeling
+- **PostgreSQL + Prisma**: NoSQL DB with schema modeling
 - **JWT**: Token-based authentication
 - **dotenv**: Environment config management
 - **cookie-parser**: For handling cookies
@@ -91,13 +91,13 @@ The **entry point** for this project is [`server.js`](./server.js), where all ma
 
 ## 🧱 **Folder Structure**
 
-> 📦 Total **11 folders** and **5 files** are present in this project directory.
+> 📦 Total **12 folders** and **5 files** are present in this project directory.
 
 ### 📁 Folders
 
 | Folder Name            | Description |
 |------------------------|-------------|
-| 📁 `rate-limiters/`    | Device & route-specific rate limit services |
+| 📁 `rate-limiters/`    | Device & route-specific rate limit services  |
 | 📁 `controllers/`      | Handles business logic for auth routes       |
 | 📁 `configs/`          | Configuration files for DB, server, tokens   |
 | 📁 `middlewares/`      | JWT auth, global error, malformed JSON etc.  |
@@ -107,7 +107,8 @@ The **entry point** for this project is [`server.js`](./server.js), where all ma
 | 📁 `prisma/`           | Prisma schema and database access layer      |
 | 📁 `cron-jobs/`        | Server-triggered tasks on boot               |
 | 📁 `internal-calls/`   | For internal microservice/API interaction    |
-| 📁 `node_modules/`     | Auto-installed dependencies (ignored in Git) |
+| 📁 `node_modules/`     | Auto-installed dependencies                  |
+| 📁 `clients/`          | Includes clients that interact with Database |
 
 ### 📄 Files
 
@@ -136,7 +137,7 @@ Also:
 - Blocked devices are prevented from making any further requests unless unblocked.
 
 > DeviceID plays a critical role in both **rate limiting** and **access enforcement**.
-
+> DeviceID + UserID combo is also used in Rate Limiting where Token is Required
 ---
 
 ## 🧪 **Testing Strategy**
@@ -146,7 +147,7 @@ In addition to earlier cases, following have been tested:
 ### 📛 Device Blocking Tests:
 - ✅ Access denied from blocked device
 - ✅ Unblock restores access
-- ✅ Attempt to use refresh token from blocked device is rejected
+- ✅ Attempt to use access token from blocked device is rejected
 
 ---
 
@@ -157,7 +158,7 @@ In addition to earlier cases, following have been tested:
 | Role-Based Access Control (RBAC) | 🔺 High   | Allow role assignment to users (e.g., ADMIN, MODERATOR, USER) |
 | OTP-Based Authentication         | 🔺 High   | Add SMS/Email-based OTPs for passwordless login |
 | API Rate Limits per User Tier    | 🔸 Medium | Different limits for free vs. premium accounts |
-| MongoDB Index Optimization       | 🔸 Medium | Speed up query performance and reduce latency |
+| PostgreSQL Index Optimization    | 🔸 Medium | Speed up query performance and reduce latency |
 | Test Automation                  | 🔹 Low    | Integrate with CI/CD for robust test coverage |
 
 ---
