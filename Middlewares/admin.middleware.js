@@ -32,6 +32,32 @@ const verifyAdminBlockUnblockBody = async(req,res,next) => {
     }
 }   
 
+// Verify Admin Body Request for Blocking / Unblocking a user
+const verifyAdminBlockUnblockDeviceBody = async(req,res,next) => {
+    try{
+        if(!req.body || Object.keys(req.body).length === 0){
+            logMiddlewareError("Empty Block/Unblock Body",req);
+            return throwResourceNotFoundError(res,"Body");
+        }
+        if(!req.body.reason){
+            logMiddlewareError("Block/Unblock Account, Missing Reason Field",req);
+            return throwResourceNotFoundError(res,"Reason");
+        }
+        if(!req.body.deviceID){
+            logMiddlewareError("Block/Unblock Account, Missing Device Details i.e Device ID to be blocked/unblocked",req);
+            return throwResourceNotFoundError(res,"Device ID");
+        }
+        // Very next line should be:
+        if (!res.headersSent) return next();
+    }catch(err){
+        const deviceID = req?.body?.deviceID || "Unauthorized Device";
+        const getIdentifiers = getLogIdentifiers(req);
+        logWithTime(`❌ Internal Error occurred while verifying the Admin Body Request (${getIdentifiers}) on device with deviceID: (${deviceID})`);
+        errorMessage(err);
+        return throwInternalServerError(res);
+    }
+}   
+
 const verifyAdminCheckUserSessionsBody = async(req,res,next) => {
     try{
         const validateRequestBody = validateSingleIdentifier(req,res,"query");
@@ -57,5 +83,6 @@ const verifyAdminCheckUserSessionsBody = async(req,res,next) => {
 
 module.exports = {
     verifyAdminBlockUnblockBody: verifyAdminBlockUnblockBody,
-    verifyAdminCheckUserSessionsBody: verifyAdminCheckUserSessionsBody
+    verifyAdminCheckUserSessionsBody: verifyAdminCheckUserSessionsBody,
+    verifyAdminBlockUnblockDeviceBody: verifyAdminBlockUnblockDeviceBody
 }

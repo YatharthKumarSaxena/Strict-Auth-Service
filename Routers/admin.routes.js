@@ -83,7 +83,7 @@ router.patch(BLOCK_DEVICE, [
   commonUsedMiddleware.checkDeviceIsNotBlocked,
   commonUsedMiddleware.verifyToken,
   generalLimiter.blockDeviceRateLimiter,
-  adminMiddleware.verifyAdminBlockUnblockBody,
+  adminMiddleware.verifyAdminBlockUnblockDeviceBody,
   commonUsedMiddleware.isAdmin,
   commonUsedMiddleware.checkUserIsVerified
 ], adminController.blockDevice);
@@ -105,7 +105,7 @@ router.patch(UNBLOCK_DEVICE, [
   commonUsedMiddleware.checkDeviceIsNotBlocked,
   commonUsedMiddleware.verifyToken,
   generalLimiter.unblockDeviceRateLimiter,
-  adminMiddleware.verifyAdminBlockUnblockBody,
+  adminMiddleware.verifyAdminBlockUnblockDeviceBody,
   commonUsedMiddleware.isAdmin,
   commonUsedMiddleware.checkUserIsVerified
 ], adminController.unblockDevice);
