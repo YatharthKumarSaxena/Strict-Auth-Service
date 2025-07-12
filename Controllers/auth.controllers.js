@@ -12,81 +12,15 @@ const bcryptjs = require("bcryptjs")
 const { throwInvalidResourceError, errorMessage, throwInternalServerError, getLogIdentifiers, throwResourceNotFoundError } = require("../configs/error-handler.configs");
 const { logWithTime } = require("../utils/time-stamps.utils");
 const { makeTokenWithPrismaID } = require("../utils/issue-token.utils");
-const { checkPasswordIsValid, createFullPhoneNumber,  checkAndAbortIfUserExists } = require("../utils/auth.utils");
+const { checkPasswordIsValid, createFullPhoneNumber,  checkAndAbortIfUserExists, loginTheUser, logoutUserCompletely } = require("../utils/auth.utils");
 const { signInWithToken } = require("../services/token.service");
 const { makeUserID } = require("../services/userID.service");
 const { createDevice, checkDeviceThreshold, checkUserDeviceLimit } = require("../utils/device.utils");
 const { logAuthEvent } =require("../utils/auth-log-utils");
-const { setAccessTokenCookie, clearAccessTokenCookie } = require("../utils/cookie-manager.utils");
+const { setAccessTokenCookie } = require("../utils/cookie-manager.utils");
 const { CREATED, INSUFFICIENT_STORAGE, INTERNAL_ERROR, OK, FORBIDDEN } = require("../configs/http-status.config");
 const authLogEvents = require("../configs/auth-log-events.config");
-const prisma = require("../clients/public.prisma")
-
-const loginTheUser = async (user, device, res) => {
-    try {
-        await prisma.user.update({
-            where: {userID: user.userID},
-            data: {
-                isVerified: true,
-                lastLogin: new Date(),
-                loginCount: {increment: 1},
-            }
-        });
-        await prisma.device.upsert({
-            where: { userID: user.userID },
-            update: {
-                lastUsedAt: new Date(),
-                deviceType: device.deviceType || undefined,
-                deviceName: device.deviceName || undefined
-            },
-            create: {
-                deviceID: device.deviceID,
-                userID: user.userID,
-                deviceType: device.deviceType || undefined,
-                deviceName: device.deviceName || undefined,
-                lastUsedAt: new Date()
-            }
-        });
-        return true;
-    } catch (err) {
-        logWithTime(`❌ Internal Error occurred while logging in user (${user.userID})`);
-        errorMessage(err);
-        throwInternalServerError(res);
-        return false;
-    }
-};
-
-// 🧠 auth.controller.js or auth.service.js
-const logoutUserCompletely = async (user, res, req, context = "general") => {
-    try {
-        await prisma.device.delete({
-            where: { userID: user.userID }
-        });
-
-        await prisma.user.update({
-            where: {userID: user.userID},
-            data: {
-                isVerified: false,
-                lastLogout: new Date(),
-                jwtTokenIssuedAt: null
-            }
-        });
-
-        const isCookieCleared = clearAccessTokenCookie(res);
-        if (!isCookieCleared) {
-            logWithTime(`❌ Cookie clear failed for user (${user.userID}) during ${context}. Device ID: (${req.deviceID})`);
-            return false;
-        }
-
-        logWithTime(`👋 User (${user.userID}) logged out successfully from all devices during ${context}. Device ID: (${req.deviceID})`);
-        return true;
-    } catch (err) {
-        logWithTime(`❌ Error while logging out user (${user.userID}) during ${context}. Device ID: (${req.deviceID})`);
-        errorMessage(err);
-        throwInternalServerError(res);
-        return false;
-    }
-};
+const prisma = require("../clients/public.prisma");
 
 // DRY Principle followed by this Code
 const checkUserIsNotVerified = async(req,res) => {

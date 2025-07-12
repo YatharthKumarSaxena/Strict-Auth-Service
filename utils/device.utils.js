@@ -3,7 +3,7 @@ const { errorMessage,throwInternalServerError } = require("../configs/error-hand
 const prisma = require("../clients/public.prisma");
 const { FORBIDDEN } = require("../configs/http-status.config");
 const { expiryTimeOfAccessToken } = require("../configs/security.config");
-const { logoutUserCompletely } = require("../controllers/auth.controllers")
+const { logoutUserCompletely } = require("./auth.utils")
 
 // 📦 Utility to get a device from user's device by deviceID
 const getDeviceByID = async (user, deviceID) => {

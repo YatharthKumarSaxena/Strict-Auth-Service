@@ -6,6 +6,7 @@ const { BAD_REQUEST } = require("../configs/http-status.config");
 const { isValidRegex,validateLength } = require("../utils/field-validators");
 const { fullPhoneNumberRegex } = require("../configs/regex.config");
 const { fullPhoneNumberLength } = require("../configs/fields-length.config");
+const { clearAccessTokenCookie } = require("./cookie-manager.utils");
 
 const validateSingleIdentifier = (req, res, source = 'body') => {
     const identifierKeys = ['userID', 'emailID', 'fullPhoneNumber'];
@@ -131,11 +132,79 @@ const createFullPhoneNumber = (req,res) => {
     }
 }
 
+const loginTheUser = async (user, device, res) => {
+    try {
+        await prisma.user.update({
+            where: {userID: user.userID},
+            data: {
+                isVerified: true,
+                lastLogin: new Date(),
+                loginCount: {increment: 1},
+            }
+        });
+        await prisma.device.upsert({
+            where: { userID: user.userID },
+            update: {
+                lastUsedAt: new Date(),
+                deviceType: device.deviceType || undefined,
+                deviceName: device.deviceName || undefined
+            },
+            create: {
+                deviceID: device.deviceID,
+                userID: user.userID,
+                deviceType: device.deviceType || undefined,
+                deviceName: device.deviceName || undefined,
+                lastUsedAt: new Date()
+            }
+        });
+        return true;
+    } catch (err) {
+        logWithTime(`❌ Internal Error occurred while logging in user (${user.userID})`);
+        errorMessage(err);
+        throwInternalServerError(res);
+        return false;
+    }
+};
+
+// 🧠 auth.controller.js or auth.service.js
+const logoutUserCompletely = async (user, res, req, context = "general") => {
+    try {
+        await prisma.device.delete({
+            where: { userID: user.userID }
+        });
+
+        await prisma.user.update({
+            where: {userID: user.userID},
+            data: {
+                isVerified: false,
+                lastLogout: new Date(),
+                jwtTokenIssuedAt: null
+            }
+        });
+
+        const isCookieCleared = clearAccessTokenCookie(res);
+        if (!isCookieCleared) {
+            logWithTime(`❌ Cookie clear failed for user (${user.userID}) during ${context}. Device ID: (${req.deviceID})`);
+            return false;
+        }
+
+        logWithTime(`👋 User (${user.userID}) logged out successfully from all devices during ${context}. Device ID: (${req.deviceID})`);
+        return true;
+    } catch (err) {
+        logWithTime(`❌ Error while logging out user (${user.userID}) during ${context}. Device ID: (${req.deviceID})`);
+        errorMessage(err);
+        throwInternalServerError(res);
+        return false;
+    }
+};
+
 module.exports = {
   checkAndAbortIfUserExists: checkAndAbortIfUserExists,
   validateSingleIdentifier: validateSingleIdentifier,
   createFullPhoneNumber: createFullPhoneNumber,
+  logoutUserCompletely: logoutUserCompletely,
   checkPasswordIsValid: checkPasswordIsValid,
   checkUserExists: checkUserExists,
+  loginTheUser: loginTheUser,
   isAdminID: isAdminID
 }
