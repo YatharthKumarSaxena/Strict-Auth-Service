@@ -498,7 +498,6 @@ module.exports = {
     changePassword: changePassword,
     getMyActiveDevices: getMyActiveDevices,
     activateUserAccount: activateUserAccount,
-    logoutUserCompletely: logoutUserCompletely,
     deactivateUserAccount: deactivateUserAccount,
     checkUserIsNotVerified: checkUserIsNotVerified,
     provideUserAccountDetails: provideUserAccountDetails
