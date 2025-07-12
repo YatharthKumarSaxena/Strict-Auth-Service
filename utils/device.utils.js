@@ -43,13 +43,16 @@ const checkUserDeviceLimit = async (req, res) => {
     }
 };
 
-
 const checkDeviceThreshold = async (req,res) => {
     try {
         const deviceID = req.deviceID;
         const deviceUsed = await prisma.device.findUnique({
             where: { deviceID: deviceID }
         });
+        if (!deviceUsed) {
+            // No threshold exceeded because device not yet registered
+            return false;
+        }
         // Check the Session is Expired on this Device or not
         const lastUsedTime = new Date(deviceUsed.lastUsedAt).getTime(); // In milli second current time is return
         const currentTime = Date.now(); // In milli second current time is return
@@ -72,8 +75,10 @@ const checkDeviceThreshold = async (req,res) => {
             return true;
         }
         return false;
-    } catch (error) {
-        logWithTime(`❌ Internal Error during Device Threshold Check for (${deviceID}):`, error);
+    } catch (err) {
+        const deviceID = req.deviceID || "Unauthorized Device"
+        logWithTime(`❌ Internal Error during Device Threshold Check for (${deviceID})`);
+        errorMessage(err);
         throwInternalServerError(res);
         return true;
     }

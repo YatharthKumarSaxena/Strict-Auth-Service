@@ -106,7 +106,7 @@ const createFullPhoneNumber = (req,res) => {
     try{
         const { countryCode,number } = req.body.phoneNumber;
         const newNumber = "+" + countryCode + number;
-        const isFullPhoneNumberValid = isValidFullPhoneNumber();
+        const isFullPhoneNumberValid = isValidFullPhoneNumber(newNumber,res);
         if(!isFullPhoneNumberValid)return null;
         const userID = req.user?.userID || req?.foundUser?.userID || "New User";
         logWithTime(`Full Phone Number Created Successfully for User with ${userID}`)
