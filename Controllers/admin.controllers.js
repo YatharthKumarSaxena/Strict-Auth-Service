@@ -150,14 +150,14 @@ const blockDevice = async (req, res) => {
                 isBlocked: true,
                 blockedAt: new Date(),
                 blockedBy: req.user.userID,
-                reason,
+                blockReason: reason,
             },
             create: {
                 deviceID,
                 isBlocked: true,
                 blockedAt: new Date(),
                 blockedBy: req.user.userID,
-                reason,
+                blockReason: reason,
             }
         });
 
@@ -210,7 +210,7 @@ const unblockDevice = async (req, res) => {
                 isBlocked: false,
                 unblockedAt: new Date(),
                 unblockedBy: req.user.userID,
-                reason
+                unblockReason: reason
             }
         });
 

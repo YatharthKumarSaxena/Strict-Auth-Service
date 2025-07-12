@@ -267,8 +267,6 @@ const checkDeviceIsNotBlocked = async (req, res, next) => {
     return res.status(FORBIDDEN).json({
       success: false,
       message: "🚫 This device has been blocked by the administrator.",
-      blockedBy: blockedDevice.blockedBy,
-      blockedAt: blockedDevice.blockedAt,
       reason: blockedDevice.reason,
       code: "DEVICE_BLOCKED"
     });
