@@ -2,6 +2,8 @@
 const { throwInvalidResourceError, throwResourceNotFoundError, throwInternalServerError, errorMessage, logMiddlewareError, getLogIdentifiers } = require("../configs/error-handler.configs");
 const prisma = require("../clients/public.prisma");
 const { logWithTime } = require("../utils/time-stamps.utils");
+const { isValidRegex, validateLength } = require("../utils/field-validators");
+
 
 const fetchUser = async(req,res) =>{
     try{
