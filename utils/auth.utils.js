@@ -1,11 +1,8 @@
-const { errorMessage,throwInternalServerError,throwInvalidResourceError } = require("../configs/error-handler.configs");
+const { errorMessage,throwInternalServerError } = require("../configs/error-handler.configs");
 const { logWithTime } = require("../utils/time-stamps.utils");
 const prisma = require("../clients/public.prisma");
 const bcryptjs = require("bcryptjs");
 const { BAD_REQUEST } = require("../configs/http-status.config");
-const { isValidRegex,validateLength } = require("../utils/field-validators");
-const { fullPhoneNumberRegex } = require("../configs/regex.config");
-const { fullPhoneNumberLength } = require("../configs/fields-length.config");
 const { clearAccessTokenCookie } = require("./cookie-manager.utils");
 const { isValidFullPhoneNumber } = require("./user-validators.utils");
 
