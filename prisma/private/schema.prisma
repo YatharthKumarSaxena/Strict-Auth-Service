@@ -85,11 +85,11 @@ model AuthLog {
 }
 
 model AdminAction {
-  id           Int            @id
-  authLog      AuthLog        @relation(fields: [id], references: [id])
+  id           Int     @id
+  authLog      AuthLog @relation(fields: [id], references: [id])
   targetUserID String?
   reason       String?
-  filter       AuthLogEvent[]
+  filter       Json
 }
 
 model Counter {

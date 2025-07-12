@@ -421,7 +421,11 @@ const getMyActiveDevices = async (req, res) => {
   try {
     const user = req.user;
 
-    if (!user.device) {
+    let device = await prisma.device.findUnique({
+        where: {userID: user.userID}
+    });
+
+    if (!device) {
       logWithTime(`📭 No active devices found for User (${user.userID})`);
       return res.status(OK).json({
         success: true,
@@ -430,10 +434,10 @@ const getMyActiveDevices = async (req, res) => {
       });
     }
 
-    const device = {
-        deviceName: user.device.deviceName,
-        deviceType: user.device.deviceType,
-        lastUsedAt: user.device.lastUsedAt
+    device = {
+        deviceName: device.deviceName,
+        deviceType: device.deviceType,
+        lastUsedAt: device.lastUsedAt
     }
 
     // Update data into auth.logs

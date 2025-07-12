@@ -266,7 +266,7 @@ const getUserAuthLogs = async (req, res) => {
             logWithTime(`❌ Admin (${req.user.userID}) attempted to access logs of another admin (${userID})`);
             return throwAccessDeniedError(res,"Access denied. You cannot access another admin's authentication logs.")
         }
-        prismaQuery.userID = userID;
+        prismaQuery.where.userID = userID;
     } 
 
     if (userID) {
@@ -315,21 +315,29 @@ const checkUserAccountStatus = async(req,res) => {
         let verifyWith = await fetchUser(req,res);
         if (res.headersSent) return; // If response is returned by fetchUser
         if(verifyWith !== "")user = req.foundUser;
+
         // This Will Execute if It is Normal Request Made By User to View their Account Details
         if(!user)user = req.user; 
         if(!user){
             return throwResourceNotFoundError(res,"User");
         }
+
         const isUserCheckedAdmin = isAdminID(user.userID);
         if(isUserCheckedAdmin && user.userID !== adminID){
             logWithTime(`❌ Admin (${req.user.userID}) attempted to access logs of another admin (${user.userID})`);
             return throwAccessDeniedError(res, "Access denied. You cannot access another admin's authentication logs.");
         }
+
+        const phoneNumber = await prisma.phoneNumber.findUnique({
+            where: {userID: user.userID}
+        });
+
         const User_Account_Details = {
             "Name": user.name,
             "Customer ID": user.userID,
-            "Country Code": user.phoneNumber.countryCode,
-            "Number": user.phoneNumber.number,
+            "Full Phone Number": user.fullPhoneNumber,
+            "Country Code": phoneNumber.countryCode,
+            "National Number": phoneNumber.number,
             "Email ID": user.emailID,
             "Verified": user.isVerified,
             "Login Count": user.loginCount,
@@ -391,7 +399,12 @@ const getUserActiveDevicesForAdmin = async (req, res) => {
 
     // ✅ Proceed with extracting devices
     const user = req.foundUser;
-    if (!user.device) {
+
+    let device = await prisma.device.findUnique({
+        where: {userID: user.userID}
+    })
+
+    if (!device) {
       logWithTime(`📭 No active devices found for User (${user.userID})`);
       return res.status(OK).json({
         success: true,
@@ -415,7 +428,7 @@ const getUserActiveDevicesForAdmin = async (req, res) => {
       success: true,
       message: `Fetched active device sessions of User (${user.userID})`,
       total: 1,
-      devices: [user.device]
+      device: [device]
     });
 
   } catch (err) {
