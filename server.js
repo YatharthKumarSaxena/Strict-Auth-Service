@@ -40,7 +40,7 @@ async function init(){ // To use await we need to make function Asynchronous
         if(user){ // Means the Admin User Exists
             logWithTime("🟢 Admin User already exists");
         }
-        else{ // Since findOne returns null when no user found this statement will execute if no Admin User exists
+        else{  // Since findOne returns null when no user found this statement will execute if no Admin User exists
             try{
                 await createAdminUserIfNotExists(); 
                 /*
