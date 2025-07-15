@@ -12,8 +12,9 @@ Instead of exposing everything to external calls, this mechanism allows controll
 
 This is especially useful for things like:
 
-- 🌐 Refreshing cookies from server startup
+- 🌐 Refreshing cookies on server start
 - 🔒 Setting system tokens internally for ADMINs
+- 🧪 During **development**, when testing login from terminal
 - 🤖 Automation triggers, migrations, or dev tool hooks
 
 ---
@@ -24,41 +25,53 @@ This is especially useful for things like:
 
 | 🧩 File Name                              | 📄 Purpose                                                                 |
 | ---------------------------------------- | ------------------------------------------------------------------------- |
-| `set-admin-refresh-cookie.internal.js`   | 🍪 Internally sets refresh token cookie for the ADMIN without HTTP request |
+| `set-admin-access-cookie.internal.js`   | 🍪 Internally sets refresh token cookie for the ADMIN without HTTP request |
 
 ---
 
-## ⚙️ **What Happens Internally**
+## ⚙️ **How It Works**
 
-Instead of `fetch('/api/v1/internal/set-cookie')`, this file does:
+This function simulates the process of issuing a cookie for an already-validated admin during dev/test environments — where HTTP routes aren't invoked, and everything runs from the terminal or scripts.
 
-1. Simulates a `req` and `res` object
-2. Injects `adminUser` and `refreshToken` into `req`
-3. Calls the controller `setRefreshCookieForAdmin()` directly
-4. Mocks the `.cookie()` and `.status().json()` response methods
-5. Logs the outcome for observability
+### ✅ Flow:
 
-✅ **No external request. No route hit. Only logic reuse.**
+1. 🧾 **Validates** that user is of type `"ADMIN"`
+2. 🧪 **Creates fake** `req` and `res` objects
+3. 🔁 **Calls** `setAccessTokenInCookieForAdmin()` controller
+4. 🍪 **Mocks** `res.cookie()` and `res.status().json()` to print info
+5. 📡 **Logs** the entire process from start to finish
+
+No actual HTTP involved — only internal logic reuse.
 
 ---
 
 ## 🧠 **Design Principles Applied**
 
-| 🧱 Principle / Pattern          | ✅ Where Applied                                                 |
-| ------------------------------ | ---------------------------------------------------------------- |
-| **DRY**                        | Reuses controller logic instead of rewriting cookie logic        |
-| **SRP** (Single Responsibility)| Only handles internal refresh token setting                      |
-| **Encapsulation**              | Hides request-response simulation behind one function            |
-| **Trust Boundary Enforcement** | Checks for `ADMIN` user type before executing sensitive logic    |
+| 🧱 Principle / Pattern           | ✅ Where Applied                                                  |
+| ------------------------------- | ----------------------------------------------------------------- |
+| **DRY**                         | Reuses controller logic (`setAccessTokenInCookieForAdmin`)        |
+| **SRP** (Single Responsibility) | Only handles internal refresh token setup                         |
+| **Encapsulation**               | Hides HTTP simulation inside a clean callable function            |
+| **Trust Boundary Enforcement**  | Ensures only ADMINs are permitted to trigger this action          |
+
+---
+
+## ⚠️ **Usage Note**
+
+This file is designed primarily for **development-phase** scenarios such as:
+
+- Auto-login simulation from CLI  
+- Testing admin routes without frontend  
+- Server-side token regeneration during testing  
+
+It should not be publicly exposed or bundled into production-facing logic.
 
 ---
 
 ## 🎯 **Final Takeaway**
 
-The `internal-calls/` folder acts like a **service-layer bridge** between raw logic and exposed APIs.
+The `internal-calls/` folder acts like a **bridge between business logic and server bootstrapping**, ensuring **safe, reusable, and isolated** backend flows without needing HTTP calls.
 
-> It allows you to reuse logic safely inside the backend without depending on HTTP. Perfect for **secure bootstraps**, **internal automation**, and **ADMIN-level orchestration**.
+> *Sir, this is what “controlled backend intelligence” looks like — internal, powerful, and secure.*
 
-🛡️ *That’s backend maturity, Sir.*
-
-— Controlled and curated by **Yatharth Kumar Saxena** 🔐
+🔐 Built and orchestrated by **Yatharth Kumar Saxena**
