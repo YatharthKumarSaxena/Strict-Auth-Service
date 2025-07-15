@@ -1,133 +1,151 @@
-# 🌐 `routers/` — API Gateway & Entry Control System
+# 🛣️ `routes/` — Centralized Route Definitions for the Backend
 
-> **I'm the README.md file of this folder, here to guide you step-by-step!** 🚀
+This folder defines **all HTTP routes** for the backend API and connects each endpoint to the appropriate middleware layers and controllers.  
+
+Each route file corresponds to a **specific domain** — such as authentication, administration, internal tools, or user profile handling — and strictly adheres to layered design principles.
 
 ---
 
 ## 📖 **Introduction**
 
-Welcome to the **`routers/` folder** — the **entry gatekeeper** of the Custom Authentication Service. Every public or internal request flows through this folder first. Think of it as the **air traffic controller** of your backend — **filtering**, **routing**, and **guarding** access to controllers via **strict middleware orchestration**.
+The routing layer serves as the **entrypoint to every feature module**, applying:
 
-From user sign-up to admin-controlled blocking, each route is:
-- Thoroughly validated
-- Modularly rate-limited
-- Securely authenticated
-- And guarded using **device-specific**, **token-based**, and **role-based** access checks
+- Middlewares for authentication, validation, and rate-limiting
+- Controllers for business logic execution
+- Role-based and device-based protection
+- Smart separation between authenticated and unauthenticated flows
 
-This folder is the **frontline of defense and flow**, maintaining clear separation between **auth**, **admin**, **internal**, and **user profile** domains.
-
----
-
-## 🧭 Table of Contents
-
-- 🗂️ [Folder Overview](#-folder-overview)
-- 📄 [Detailed Route Breakdown](#-detailed-route-breakdown)
-- 🧠 [Design Principles & Patterns](#-design-principles--patterns)
-- 🎯 [Final Takeaway](#-final-takeaway)
+All routes are registered centrally via the `index.js` entrypoint.
 
 ---
 
-## 🗂️ **Folder Overview**
+## 🗂️ **Folder Structure**
 
-> 📦 Total: **5 files**
+This folder contains 5 files in total:
 
-| 📄 File Name         | 📋 Purpose Summary |
-|----------------------|-------------------|
-| `index.js`           | 🧩 Binds all route modules using base URIs; exported to server.js |
-| `auth.routes.js`     | 🔐 Handles user signup/signin, token-based flows, and account ops |
-| `admin.routes.js`    | 👑 Admin-only operations like block/unblock, audit logs, account views |
-| `user.routes.js`     | 👤 Authenticated user profile fetch/update |
-| `internal.routes.js` | 🧬 Internal service routes like secure cookie setup for admins |
-
----
-
-## 📄 **Detailed Route Breakdown**
-
-### 🔐 `auth.routes.js`
-Handles **public and protected user** routes:
-- `POST /signup`, `POST /signin`
-- `POST /signout`, `POST /signout-current-device`
-- `PATCH /activate`, `PATCH /deactivate`, `PATCH /change-password`
-- `GET /check-my-active-devices`
-
-🔒 **Middlewares**:
-- Device validation
-- Token ownership + validation
-- Account status check (blocked / deactivated / verified)
-- Rate limiting on sensitive APIs
+| 📄 File Name         | 📌 Purpose                                                                 |
+|----------------------|---------------------------------------------------------------------------|
+| `auth.routes.js`     | 🔐 Routes for public user login/signup, account control, and sessions     |
+| `admin.routes.js`    | 👑 Admin-only APIs to block/unblock users/devices, fetch stats            |
+| `user.routes.js`     | 👤 Authenticated user's own profile and update endpoints                  |
+| `internal.routes.js` | ⚙️ Internal dev/admin-only APIs (like cookie injection)                   |
+| `index.js`           | 🧩 Entry point that mounts all above routes using URI base paths          |
 
 ---
 
-### 👑 `admin.routes.js`
-Routes only accessible to **verified admins**:
-- `PATCH /block`, `PATCH /unblock` users
-- `POST /get-user-logs`
-- `GET /get-user-details`, `GET /get-user-sessions`
-- `GET /get-total-registered-users`
+## 📄 **File: auth.routes.js** — 🔐 Public Authentication Routes
 
-🔐 **Admin-Only Controls**:
-- Validates admin credentials
-- Checks admin's own session and verification
-- Rate-limited to avoid abuse
-- Uses internal controller functions where needed
+This file contains **routes for public and user-accessible features** like:
 
----
+- **Sign Up / Sign In**
+- **Sign Out from all devices**
+- **Account Activation / Deactivation**
+- **Change Password**
+- **View Logged-In Device Sessions**
 
-### 👤 `user.routes.js`
-- `GET /my-profile`: View own account details
-- `PATCH /update-profile`: Update basic profile fields
+### 🛡️ Rate Limiting Strategy:
+- `special-api.rate-limiter.js` used for public routes (sign up/in/activate)
+- `general-api.rate-limiter.js` used for access-token protected APIs (sign out, deactivate, etc.)
 
-⚙️ **Safety Measures**:
-- Blocks updates to immutable fields
-- Verifies account and token ownership
-- Rate limits misuse attempts
+### 🧠 Middleware Highlights:
+- Device Field Verification  
+- Device Block Check  
+- Access Token Verification  
+- User Blocked & Active Checks  
+- Body Validation Middleware
 
 ---
 
-### 🧬 `internal.routes.js`
-Single protected route:
-- `POST /set-admin-cookie`: Manages secure refresh cookie setting via admin API
+## 📄 **File: admin.routes.js** — 👑 Admin-Controlled Operations
 
-⚠️ Only used in internal workflows (like admin panel-based login) and protected with:
-- Admin check
-- Verified session
-- Input body validation
+This file powers all **admin-only routes** for user/device control and analytics:
+
+- ✅ Block / Unblock User
+- ✅ Block / Unblock Device
+- ✅ View Any User’s Account or Devices
+- ✅ View Any User's Auth Logs
+- ✅ Get Total Registered Users
+
+### 🛡️ Admin Validation Includes:
+- Identity check via access token
+- Verified admin check
+- Body validation for secure operations
+- Rate limiting per API
+
+### 🧠 Middleware Highlights:
+- `verifyAdminBlockUnblockBody()` or `verifyAdminBlockUnblockDeviceBody()`
+- `internal.api.middleware.js` for extra admin validations
+- Fine-grained **rate limiters per route**
 
 ---
 
-### 🧩 `index.js`
-Maps each route file to its base path:
+## 📄 **File: user.routes.js** — 👤 Logged-in User Profile APIs
+
+Contains routes for **authenticated users** to manage and view their own profile:
+
+- ✅ `GET /me` → View full profile details  
+- ✅ `PATCH /me` → Update profile (with allowed fields only)
+
+### 🧠 Middleware Highlights:
+- Uses **access token** + **deviceID**
+- Blocks update of restricted fields like userID/userType
+- Validates request payload and current login session
+- Controlled using `general-api.rate-limiter.js`
+
+---
+
+## 📄 **File: internal.routes.js** — ⚙️ Internal/Dev APIs
+
+**Reserved for development or privileged admin actions.**  
+Currently includes:
+
+- ✅ Set Access Token via Cookie (for testing login state in browser)
+
+### 🔒 Secured via:
+- DeviceID & Block Check
+- Access token presence
+- Admin-only access
+- Strict request body schema
+
+---
+
+## 📄 **File: index.js** — 🧩 Router Entry Point
+
+This file **registers all modular route files** to their base URI paths:
+
 ```js
-app.use("/api/v1/auth", authRoutes);
-app.use("/api/v1/admin", adminRoutes);
-app.use("/api/v1/user", userRoutes);
-app.use("/api/v1/internal", internalRoutes);
+const { AUTH_BASE, ADMIN_BASE, USER_BASE, INTERNAL_BASE } = require("../configs/uri.config");
+
+app.use(AUTH_BASE, authRoutes);
+app.use(ADMIN_BASE, adminRoutes);
+app.use(USER_BASE, userRoutes); 
+app.use(INTERNAL_BASE, internalRoutes);
+```
+
+All constants like `/api/auth`, `/api/admin`, etc., are imported from `uri.config.js`.
 
 ---
 
-## 🧠 **Design Principles & Patterns**
+## 🧠 **Middleware Usage Strategy**
 
-| ✅ Principle / Pattern          | 💡 Where Applied                                                                 |
-|--------------------------------|----------------------------------------------------------------------------------|
-| **SRP (Single Responsibility)** | Each route file handles a single user group (auth, admin, user, internal)       |
-| **Modularity**                 | Clean separation of routes, middlewares, and controllers                         |
-| **DRY**                        | Shared middlewares reused across all route groups                                |
-| **Least Privilege Access**     | Admin-specific logic deeply isolated from public user endpoints                  |
-| **Fail Fast**                  | All request checks are validated before controller logic is invoked              |
-| **KISS**                       | Controllers are lightweight — pre-validation handled in router layer             |
-| **Scalability Ready**          | Easily extendable for more user types (e.g., `superadmin.routes.js`)             |
+| Type                       | Middleware Source                     | Applied On                               |
+|----------------------------|----------------------------------------|-------------------------------------------|
+| ✅ **Device Checks**       | `common-used.middleware.js`            | All routes — public or private            |
+| ✅ **Access Token Logic**  | `common-used.middleware.js`            | Protected routes only                     |
+| ✅ **Admin Validation**    | `admin.middleware.js` / `internal.api` | Admin-only routes                         |
+| ✅ **Rate Limiters**       | `general-api` or `special-api`         | Route-specific depending on auth level    |
+| ✅ **Body Validators**     | `auth.middleware.js` / `admin.middleware.js` | Strict schema checks                     |
 
 ---
 
 ## 🎯 **Final Takeaway**
 
-The `routers/` folder is the **first line of execution** in the backend architecture — ensuring every request is **filtered**, **validated**, and **securely routed**.
+The `routes/` folder:
 
-It embodies your design philosophy:
+- Provides a **cleanly segmented API structure**
+- Adopts the **Single Responsibility Principle** — each file handles a specific API domain
+- Enables **secure**, **throttled**, and **well-validated** requests
+- Utilizes layered protection: device check → token verification → role check → business logic
 
-> **“Trust no one by default — validate, verify, and then allow.”**
+> A truly modular and production-grade API gateway — ready to scale and easy to debug.
 
-By isolating route groups, enforcing robust middleware pipelines, and minimizing controller burden, you’ve built a **battle-tested gateway** that is ready to scale under real-world production load.
-
-> Engineered with clarity by **Yatharth Kumar Saxena**  
-> Let this folder be the **guardian of clean code** and **secure flow**. 🔐
