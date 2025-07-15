@@ -1,106 +1,148 @@
-# 🧠 `services/` — Logical Command Center of the Auth System
+# ⚙️ `services/` — Core Business Services Layer
 
-> **I'm the README.md file of this folder, here to guide you step-by-step!** 🚀
+This folder contains modular and reusable **business logic services** that power various operations like:
 
----
+- API Rate Limiting  
+- UserID Generation  
+- Access Token Construction  
 
-## 📖 **Introduction**
-
-Welcome to the **`services/` folder**, the **intelligence layer** of this authentication ecosystem. These files don't just handle requests — they **enforce rules**, **generate identities**, and **control access velocity** with clean, scalable logic.
-
-Think of this folder as the **bridge between raw logic and real-world flow** — whether it’s generating userIDs that never collide, limiting brute-force attempts using rate-limiting thresholds, or signing tokens seamlessly with logging — everything here is **stateless**, **composable**, and **design-pattern-rich**.
-
-All services inside this folder are carefully modularized following **SRP**, and several of them use **Factory**, **Singleton**, and **Open-Closed** principles to future-proof the entire system.
+Each service in this folder **abstracts internal complexity** from the routes and controllers — enabling code reuse, separation of concerns, and testability.
 
 ---
 
-## 🧭 Table of Contents
+## 🗂️ **Folder Structure**
 
-- 🗂️ [Folder Overview](#-folder-overview)
-- 📄 [Detailed File-Wise Breakdown](#-detailed-file-wise-breakdown)
-- 🧠 [Design Principles & Patterns](#-design-principles--patterns)
-- 🎯 [Final Takeaway](#-final-takeaway)
+This folder contains 3 main files:
 
----
-
-## 🗂️ **Folder Overview**
-
-> 📦 Total: **3 files**
-
-| 📄 File Name              | 📋 Purpose Summary |
-|--------------------------|---------------------|
-| `rate-limiter.service.js`| 🛑 Tracks request frequency using `deviceID` + `routeKey` combo |
-| `token.service.js`       | 🔐 Generates refresh tokens when login happens via token |
-| `userID.service.js`      | 🆔 Factory + Singleton driven logic for safe User ID generation |
+| 📄 File Name              | 🔧 Purpose                                                                 |
+|---------------------------|--------------------------------------------------------------------------|
+| `rate-limiter.service.js` | Rate-limiting logic for `deviceID + routeKey` combo using Prisma         |
+| `token.service.js`        | Token generation and login logging for all users                         |
+| `userID.service.js`       | Responsible for generating globally unique, machine-prefixed userIDs     |
 
 ---
 
-## 📄 **Detailed File-Wise Breakdown**
+## 📄 `rate-limiter.service.js` — 🚦 Device + Route Based API Rate Control
 
-### 🛑 `rate-limiter.service.js`
+### 📌 Purpose:
+Implements **per-device + per-route** API throttling using Prisma. Tracks how many requests a device has made to a specific route in a defined time window.
 
-- **Purpose**: Implements per-device-per-route rate limiting (typically 5 requests/minute).
-- `getRateLimitMeta()`: Reads existing request count and last request time
-- `shouldBlockRequest()`: Applies business logic to decide if request is blocked
-- `incrementRateLimitCount()`: Atomically increments request count and timestamps
+### 🔐 Core Logic:
 
-> 🔄 Used in sensitive APIs like `/not-found` or account actions to avoid abuse.
+#### ✅ `getRateLimitMeta(deviceID, routeKey)`
+- Fetches existing rate limit record from `prismaPrivate.rateLimit`
+- If record doesn't exist, returns a default object (zero requests, epoch start date)
 
----
+#### ✅ `shouldBlockRequest(requestCount, lastRequestAt)`
+- Returns `true` if:
+  - Request count exceeds `REQUEST_LIMIT` (default = 5)
+  - Time since last request is within `TIME_WINDOW_MS` (default = 1 min)
 
-### 🔐 `token.service.js`
+#### ✅ `incrementRateLimitCount(deviceID, routeKey)`
+- Either increments existing count or creates a new entry with count = 1
+- Uses Prisma’s `upsert` to handle both insert/update in one query
 
-- **Purpose**: Handles token-based login logic
-- `signInWithToken(req, res)`:  
-  - Logs login type (`refresh`, `re-auth`, etc.)  
-  - Creates refresh token using `makeTokenWithMongoID()` from `utils/`
-  - Automatically logs and returns the token
-
-> 🔒 Keeps `services/` clean by outsourcing JWT creation logic to the utility layer.
-
----
-
-### 🆔 `userID.service.js`
-
-- **Purpose**: Generates unique userID using:
-  - MongoDB counter (`seq`)
-  - Machine code (`IP_Address_Code`)
-  - User role prefix (`CUS`, etc.)
-
-#### 🏭 Uses 3 Main Sub-Functions:
-
-- `increaseCustomerCounter(res)`  
-  - Increments MongoDB counter  
-  - Ensures thread-safe userID creation  
-  - **Follows SRP & Singleton** (1 document = 1 counter)
-
-- `createCustomerCounter(res)`  
-  - Initializes counter if missing (only once per machine)
-
-- `makeUserID(res)`  
-  - **Factory** for creating userID → combines counter + prefix + machine code  
-  - Respects machine limit (`userRegistrationCapacity`)  
-  - Logs every important stage
+### 🧠 Design Principles Applied:
+| Principle/Pattern   | How it's applied                                                                 |
+|---------------------|----------------------------------------------------------------------------------|
+| **SRP**             | File handles only rate-limiting persistence and logic                           |
+| **Encapsulation**   | All internal tracking logic hidden behind exported functions                    |
+| **Reusable**        | Can be used by any route — just pass `deviceID` and `routeKey`                  |
 
 ---
 
-## 🧠 **Design Principles & Patterns**
+## 📄 `token.service.js` — 🔐 Token-based Sign In Utility
 
-| ✅ Principle / Pattern         | 💡 Where Applied |
-|-------------------------------|------------------|
-| **SRP** (Single Responsibility Principle) | All 3 services do 1 focused job |
-| **Factory Pattern**           | `makeUserID()` creates unique structured IDs |
-| **Singleton Pattern**         | `createCustomerCounter()` ensures 1 MongoDB counter per role |
-| **OCP** (Open-Closed Principle) | `makeUserID()` can evolve for admins/devices without rewriting |
-| **KISS**                      | Token login and rate-limiter logic is minimal and clean |
-| **DRY**                       | DB operations and logging reused via imported utils |
+### 📌 Purpose:
+Logs login activity and generates **access tokens** via utility method `makeTokenWithPrismaID`.
+
+### 🔧 Exports:
+
+#### ✅ `signInWithToken(req, res)`
+- Logs which method was used for verification (`req.verifyWith`)
+- Calls token utility to issue a new access token for user
+- Returns token string (or empty string if token generation fails)
+
+### 🔥 Internally Uses:
+- `makeTokenWithPrismaID()` from `utils/issue-token.utils.js`
+- `logWithTime()` to time-stamp all logins
+
+### 🧠 Design Highlights:
+| Principle/Pattern | How it’s used                                                       |
+|-------------------|---------------------------------------------------------------------|
+| **SRP**           | Only responsible for issuing token and logging method              |
+| **Abstraction**   | Token generation delegated to external utility                     |
+| **Loose Coupling**| No direct DB access or business rules inside — all delegated out    |
+
+---
+
+## 📄 `userID.service.js` — 🆔 Unique UserID Generation System
+
+### 📌 Purpose:
+Generates **globally unique userIDs** based on machine code and a centralized counter document using `prismaPrivate.counter`.
+
+### 💡 Process Breakdown:
+
+1. Checks if a counter with ID `"CUS"` exists.
+2. If yes, increments the counter and returns the new sequence number.
+3. If no, creates the counter and sets initial `seq = 1`.
+4. Combines:
+   - `customerIDPrefix` (e.g., "CUS")
+   - `IP_Address_Code` (machine code)
+   - Total registrations (`seq`)
+   - `adminUserID` base offset
+5. Constructs the final UserID:  
+   `CUS` + `MachineCode` + `Counter`
+
+---
+
+### 🔧 Exported Functions:
+
+#### ✅ `makeUserID(res)`
+- Manages counter existence
+- Checks machine capacity using `userRegistrationCapacity`
+- Constructs and returns final ID  
+- Returns empty string on any failure or capacity breach
+
+#### ✅ `increaseCustomerCounter(res)`
+- Uses Prisma `.update()` to increment counter with ID `CUS`
+
+#### ✅ `createCustomerCounter(res)`
+- Creates new document if `CUS` doesn’t exist
+
+---
+
+### 🧠 Design Principles & Patterns Used:
+
+| Principle/Pattern       | Description                                                                 |
+|--------------------------|----------------------------------------------------------------------------|
+| **SRP**                 | Each function has exactly one responsibility (create, increment, generate) |
+| **Singleton Pattern**   | Only one counter record exists per machine (`id = "CUS"`)                  |
+| **Factory Pattern**     | Final ID is generated from fixed steps using dynamic input (`makeUserID()`)|
+| **Open-Closed Principle** | Easy to extend (e.g., different user types) without modifying existing code |
+
+---
+
+## 🔗 Dependencies Used Across Services
+
+| Package/Module          | Role                                                             |
+|--------------------------|------------------------------------------------------------------|
+| `prismaPrivate`          | Database layer for private access (userID, rate limit, counter) |
+| `logWithTime()`          | Timestamped logs for debugging and tracking                     |
+| `throwInternalServerError()` | Graceful failover in production environments                 |
+| `app-limits.config.js`  | Custom machine-level constants (limits, prefixes, etc.)          |
 
 ---
 
 ## 🎯 **Final Takeaway**
 
-This `services/` folder is where **core backend intelligence resides**. Every time a user signs up, logs in, or sends too many requests — these services **decide what happens next**, and **how it should happen**.
+This `services/` layer centralizes **critical backend functionalities** that are:
 
-> Whether it's **creating a globally unique userID**, **signing tokens** silently, or **stopping abuse** through rate-limits — this folder is the decision engine.  
-> Designed with care by **Yatharth Kumar Saxena** 🧠  
-> Let logic scale, securely and smartly — one service at a time.
+- 🔐 Secure (rate limiting, ID uniqueness)
+- 📦 Reusable (across controllers and routes)
+- 📐 Pattern-aligned (Factory, Singleton, SRP)
+- 🧱 Scalable (easy to extend, plug-n-play style)
+
+> Services are the true engine room of your application.  
+> With proper design, you reduce bugs, duplication, and complexity across the entire codebase.
+
