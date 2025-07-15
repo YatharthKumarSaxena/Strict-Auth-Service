@@ -6,7 +6,7 @@
 
 ## 📖 **Introduction**
 
-This folder acts as the **central nervous system** of the custom authentication service — from cookies to cron jobs, rate limits to regex. All reusable configuration values and control switches live here.
+This folder acts as the **central nervous system** of the strict authentication service — from cookies to cron jobs, rate limits to regex. All reusable configuration values and control switches live here.
 
 By externalizing logic into modular config files, this service becomes:
 
@@ -18,26 +18,33 @@ By externalizing logic into modular config files, this service becomes:
 
 ## 🗂️ **Folder Structure**
 
-> 📦 Total: **16 files**
+> 📦 Total: **23 files**
 
-| 🧩 Config File                   | 📄 Purpose                                                                   |
-| -------------------------------- | ---------------------------------------------------------------------------- |
-| `auth-log-events.config.js`      | 🔐 Enum list of all allowed auth events (e.g., LOGIN, LOGOUT, etc.)          |
-| `cookies.config.js`              | 🍪 Config for cookie security settings (httpOnly, secure, domain, sameSite)  |
-| `cron.config.js`                 | ⏰ Schedules for cron jobs like user & log cleanup                            |
-| `db.config.js`                   | 🛢️ DB name and connection URL — injected from `.env`                        |
-| `error-handler.config.js`        | 🚨 Reusable functions for error messaging (internal, invalid, blocked, etc.) |
-| `field-length.config.js`         | ✍️ Minimum and maximum allowed lengths for form fields                       |
-| `http-status.config.js`          | 🌐 HTTP status codes used across the app                                     |
-| `id-prefixes.config.js`          | 🪪 Prefixes for Customer (CUS) and Admin (ADM) IDs                           |
-| `ip-address.config.js`           | 🌍 Stores a unique code per machine (used in userID generation)              |
-| `rate-limit.config.js`           | 🧃 Per-device and per-user-device rate-limiting policies                     |
-| `regex.config.js`                | 🔎 Regex patterns for phone, email, name, UUID, and passwords                |
-| `server-error-handler.config.js` | 🔥 Global error catchers and malformed JSON handler middleware               |
-| `server.config.js`               | 🎛️ Exports PORT number from env (used in `server.listen`)                   |
-| `uri.config.js`                  | 📌 All API base paths and route strings — centralized for DRY routing        |
-| `user-enums.config.js`           | 🧬 Immutable fields, device types, user types, block/unblock enums           |
-| `user-id.config.js`              | 🧠 Advanced admin setup, access tokens, action enums, and limits             |
+| 🧩 Config File                   | 📄 Purpose                                                               |
+| -------------------------------- | ------------------------------------------------------------------------ |
+| `admin-id.config.js`             | 👑 Combines admin ID using prefix, IP code and number from env           |
+| `admin-user.config.js`           | ⚙️ Admin auto-creation logic, bcrypt password, Prisma ORM, logging       |
+| `http-status.config.js`          | 🌐 Common HTTP status codes mapped for consistency                       |
+| `app-limits.config.js`           | 📝 Limits like `USER_REGISTRATION_CAPACITY` pulled from `.env`           |
+| `auth-log-events.config.js`      | 🔐 Enum list of allowed auth actions: LOGIN, REGISTER, etc.              |
+| `cookies.config.js`              | 🍪 Config for `httpOnly`, `secure`, `domain`, `sameSite` cookie flags    |
+| `cron.config.js`                 | ⏰ Scheduled jobs for cleanup: users, logs, device rate limits            |
+| `db.config.js`                   | 🛢️ Exports `DB_NAME` and `DB_URL` from environment variables            |
+| `device-enum-reasons.config.js`  | 🚫 Reasons for blocking/unblocking a device (suspicious, reported, etc.) |
+| `device-type.config.js`          | 💻 Enum list of devices: MOBILE, LAPTOP, TABLET                          |
+| `error-handler.config.js`        | 🛡️ Reusable error handling responses (access denied, invalid, blocked)  |
+| `fields-length.config.js`        | ✍️ Field lengths: name, password, phone, email, OTP, device name, etc.   |
+| `id-prefixes.config.js`          | 🪪 Prefixes for userID: ADM for admin, CUS for customers                 |
+| `ip-address.config.js`           | 🌍 Unique IP identifier used in admin/user ID composition                |
+| `performed-by.config.js`         | 🧑‍💻 Who triggered the action? USER / ADMIN / SYSTEM (enum)             |
+| `rate-limit.config.js`           | 🚦 Rate limiter rules per device and per user-device                     |
+| `regex.config.js`                | 🔎 All important regex: UUID, email, phone, name, password, etc.         |
+| `security.config.js`             | 🔐 SALT for bcrypt, JWT secret & expiry pulled from env                  |
+| `server-error-handler.config.js` | 🔥 Middleware to handle malformed JSON and uncaught exceptions           |
+| `server.config.js`               | ⚙️ Safely exports port number from `.env`                                |
+| `uri.config.js`                  | 📌 All route prefixes — `/auth`, `/admin`, `/users`, `/internal`         |
+| `user-enums.config.js`           | 🎭 Enums for user types, immutable fields, block/unblock options         |
+| `validation-rules.config.js`     | 🧪 Strong regex validation for name, email, phone, password, etc.        |
 
 ---
 
@@ -45,12 +52,12 @@ By externalizing logic into modular config files, this service becomes:
 
 | 🧱 Principle / Pattern               | ✅ Where Applied                                                         |
 | ------------------------------------ | ----------------------------------------------------------------------- |
-| **DRY** (Don’t Repeat Yourself)      | Error messages, URI constants, rate limits                              |
-| **YAGNI** (You Aren’t Gonna Need It) | Only essential enums and fields kept                                    |
-| **KISS** (Keep It Simple, Stupid)    | Logical grouping of each config by domain                               |
-| **SOLID**                            | SRP in each config file: one job, done well                             |
-| **Environment-Driven Configs**       | `.env` used extensively for all sensitive/tunable values                |
-| **Enum-Based Design**                | Block/unblock reasons, actions, user types — to avoid hardcoded strings |
+| **DRY** (Don’t Repeat Yourself)      | Error messages, URI constants, rate limits, enums                       |
+| **YAGNI** (You Aren’t Gonna Need It) | Only essential configurations and enums included                        |
+| **KISS** (Keep It Simple, Stupid)    | Modular separation of concerns, clearly scoped files                    |
+| **SOLID**                            | SRP: Each config handles exactly one domain (errors, enums, routes...) |
+| **Environment-Driven Configs**       | `.env` is central for ports, DB, salts, schedules, etc.                |
+| **Enum-Based Design**                | Extensively used for event names, reasons, device types, and performers|
 
 ---
 
@@ -64,6 +71,6 @@ The `configs/` folder is your project’s **foundation of maintainability** and 
 > * Easy to **scale or patch**
 > * Much **safer to operate**
 
-🎓 *That’s how professionals build for the real world, Sir.*
+🎓 *That’s how professionals build for the real world.*
 
 — Engineered precisely by **Yatharth Kumar Saxena** 🧠
