@@ -1,137 +1,207 @@
-# 🧰 `utils/` — The Brain Behind the Auth System
+# 🧰 `utils/` — Central Utility Toolkit
 
-> **I'm the README.md file of this folder, here to guide you step-by-step!** 🚀
+Welcome to the **utility engine** of the backend system. This folder houses independent, reusable modules that perform:
 
----
+- Logging
+- Validation
+- Token & Cookie handling
+- Device utilities
+- Auth logging
+- Rate checks
 
-## 📖 **Introduction**
-
-Welcome to the **`utils/` folder**, the **silent yet powerful backbone** of the entire Custom Authentication Service. Think of it as the **gatekeeper** of logic — enforcing validations, setting secure cookies, creating and refreshing JWTs, managing devices, logging authentication events, and ensuring consistency across headers — all with precision and modular discipline.
-
-This folder is engineered not just for functionality, but for **reusability**, **clarity**, and **security hardening**. Every function here is a reliable tool — designed using **SOLID principles**, respecting **KISS**, **DRY**, and enhanced using **Factory** and **Template Method** patterns where appropriate.
-
----
-
-## 🧭 Table of Contents
-
-- 🗂️ [Folder Overview](#-folder-overview)
-- 📄 [Detailed File-Wise Breakdown](#-detailed-file-wise-breakdown)
-- 🧠 [Design Principles & Patterns](#-design-principles--patterns)
-- 🎯 [Final Takeaway](#-final-takeaway)
+Every file here is **plug-and-play**, designed with **SRP**, **clean abstractions**, and easily testable logic. Most utilities are consumed directly in services, middlewares, or controllers.
 
 ---
 
-## 🗂️ **Folder Overview**
+## 🗂️ **Folder Structure**
 
-> 📦 Total: **10 utility files** + this README.md
+Total Files: **10**
 
-| 📄 File Name                    | 📋 Purpose Summary |
-|-------------------------------|---------------------|
-| `auth-log-utils.js`           | 🔐 Logs authentication events for both customers & admins |
-| `auth.utils.js`               | 🧠 Core validators, password checks, user existence detection |
-| `cookie-manager.utils.js`     | 🍪 Securely sets & clears HTTP-only refresh token cookies |
-| `device.utils.js`             | 📱 Checks device limits per user/device + constructs new devices |
-| `extract-token.utils.js`      | 🛡️ Extracts JWTs from headers and cookies |
-| `field-validators.utils.js`   | 🧹 Validates string length and RegEx matches |
-| `fresh-session.utils.js`      | ♻️ Decides when to rotate refresh tokens based on thresholds |
-| `issue-token.utils.js`        | 🏭 Factory for JWT generation and logging of issuance |
-| `time-stamps.utils.js`        | ⏱️ Custom timestamp generator and prefixed logger |
-| `token-headers.utils.js`      | 🎫 Standardizes access token headers for response objects |
-
----
-
-## 📄 **Detailed File-Wise Breakdown**
-
-### 🔐 `auth-log-utils.js`
-- Logs all key auth activities: LOGIN, REGISTER, BLOCK, UNBLOCK, TOKEN ISSUE, etc.
-- Accepts optional `adminActions` like `reason`, `targetUserID`, `filter`
-- Follows Template Method structure to reuse log format for admin setup as well
+| 📄 File Name                    | 🧩 Description                                                                 |
+|-------------------------------|------------------------------------------------------------------------------|
+| `auth-log-utils.js`           | 📘 Logs authentication events (register, login, admin actions, etc.)        |
+| `auth.utils.js`               | 🔐 Validates identifier, email, phone, and manages login/logout logic       |
+| `cookie-manager.utils.js`     | 🍪 Sets and clears `accessToken` cookie securely                            |
+| `device.utils.js`             | 📱 Device registration, threshold check, session expiry handling            |
+| `extract-token.utils.js`      | 🪪 Extracts access token from incoming cookie payload                       |
+| `field-validators.js`         | ✅ Generic validation helpers for regex and length                          |
+| `issue-token.utils.js`        | 🔑 Creates signed JWT tokens and logs token events                          |
+| `time-stamps.utils.js`        | 🕒 Logs everything with timestamp + duplicate suppression                   |
+| `token-headers.utils.js`      | 📤 Adds token headers to HTTP response for FE sync                          |
+| `user-validators.js`          | 📋 Validates user input: name, phone, email, password, country code, etc.   |
 
 ---
 
-### 🧠 `auth.utils.js`
-- Ensures only one identifier (userID/email/phone) is used at a time
-- Detects if user already exists in DB
-- Validates password using bcrypt
-- Constructs full phone numbers with regex and length safety
-- Identifies admin IDs via prefix logic
+## 📄 `auth-log-utils.js` — 📘 Logging Authentication Events
+
+### ✅ Purpose:
+- Logs all major user events like login, logout, registration, etc.
+- Automatically attaches `userID`, `deviceID`, `deviceName`, `performedBy`, and custom reasons (for admin actions)
+
+### 🛠️ Functions:
+- `logAuthEvent(req, eventType, logOptions)`
+- `adminAuthLogForSetUp(user, eventType)`
+
+### 🎯 Highlights:
+- **SRP**: Each log is consistent, versioned, and properly structured.
+- **Custom filter support**: Useful for auditing systems.
 
 ---
 
-### 🍪 `cookie-manager.utils.js`
-- `setRefreshTokenCookie()`: Sets refresh token securely
-- `clearRefreshTokenCookie()`: Clears it during sign-out or session reset
-- Logs success/failure for both operations using `logWithTime`
+## 📄 `auth.utils.js` — 🔐 Identity, Login & Logout Logic
+
+### ✅ Purpose:
+- Verifies if the user already exists (email/phone)
+- Manages login, logout (full), and identifier validation
+
+### 🛠️ Functions:
+- `checkAndAbortIfUserExists(email, phone, res)`
+- `loginTheUser(user, device, res)`
+- `logoutUserCompletely(user, res, req, context)`
+- `validateSingleIdentifier(req, res, source)`
+- `createFullPhoneNumber(req, res)`
+- `checkPasswordIsValid(req, user)`
+- `isAdminID(userID)`
+
+### 📐 Design Notes:
+- **SRP**: Only handles auth-related support logic
+- **Fail-Safe**: Catches edge cases like partial inputs and ensures clean response exits
 
 ---
 
-### 📱 `device.utils.js`
-- `checkUserDeviceLimit()`: Validates max device limit per user (Admin vs Customer)
-- `checkDeviceThreshold()`: Ensures a device isn't linked to too many users
-- `createDeviceField()`: Constructs device meta for registration/login
+## 📄 `cookie-manager.utils.js` — 🍪 Secure Token Cookie Handling
+
+### ✅ Purpose:
+- Sets and clears the `accessToken` cookie for frontend auth handling
+
+### 🔧 Functions:
+- `setAccessTokenCookie(res, token)`
+- `clearAccessTokenCookie(res)`
+
+### 🧠 Notes:
+- Secure flags handled from config (`httpOnly`, `sameSite`, `secure`)
+- Logging baked in
 
 ---
 
-### 🛡️ `extract-token.utils.js`
-- `extractAccessToken()`: Parses Bearer token from headers
-- `extractRefreshToken()`: Pulls refresh token from cookies
-- Shields against malformed tokens or missing headers
+## 📄 `device.utils.js` — 📱 Device Management & Session Expiry
+
+### ✅ Purpose:
+- Checks if a device is already assigned
+- Logs out old sessions if they expire
+- Registers device on successful login
+
+### 🛠️ Functions:
+- `getDeviceByID(user, deviceID)`
+- `checkUserDeviceLimit(req, res)`
+- `checkDeviceThreshold(req, res)`
+- `createDevice(req, res)`
+
+### 🎯 Design Elements:
+- **SRP**: Works solely on `prisma.device`
+- **Edge-Handled**: Includes session expiry check and reassignment of device
 
 ---
 
-### 🧹 `field-validators.utils.js`
-- Two focused tools:
-  - `validateLength(str, min, max)`
-  - `isValidRegex(str, regex)`
-- Core utility behind field validation logic in signup/update flows
+## 📄 `extract-token.utils.js` — 🪪 Token Extraction
+
+### ✅ Purpose:
+- Simple utility to extract JWT token from cookies
+
+### Function:
+- `extractAccessToken(req)`
 
 ---
 
-### ♻️ `fresh-session.utils.js`
-- Checks if the refresh token should be rotated (based on age threshold)
-- Issues a new one if required and updates the DB
-- Ensures optimal session freshness without unnecessary regeneration
+## 📄 `field-validators.js` — ✅ Generic Validators
+
+### ✅ Purpose:
+- Tiny helpers to validate string lengths and regex compliance
+
+### Functions:
+- `validateLength(str, min, max)`
+- `isValidRegex(str, regex)`
+
+### Used In:
+- `user-validators.js`
+- `email`, `password`, `name` validators
 
 ---
 
-### 🏭 `issue-token.utils.js`
-- Implements **Factory Pattern** for creating `access` or `refresh` JWTs
-- Issues token using `jwt.sign()` with proper secret & expiry
-- Logs event using either `logAuthEvent` or `adminAuthLogForSetUp`
+## 📄 `issue-token.utils.js` — 🔑 Access Token Generator
+
+### ✅ Purpose:
+- Signs token using `jsonwebtoken`
+- Logs successful token issuance
+
+### Functions:
+- `makeTokenWithPrismaID(req, res)`
+- `makeTokenWithPrismaIDForAdmin(user)`
+
+### 📦 Highlights:
+- Logs using `logAuthEvent()` and `adminAuthLogForSetUp()`
+- Signs token using `secretCodeOfAccessToken` from config
 
 ---
 
-### ⏱️ `time-stamps.utils.js`
-- `getTimeStamp()`: Returns current ISO string wrapped in `[]` for consistency
-- `logWithTime(...)`: Prefixes every console log with 📅 timestamp — used across all major operations
+## 📄 `time-stamps.utils.js` — 🕒 Timestamped Logging Utility
+
+### ✅ Purpose:
+- Logs messages with ISO timestamp
+- Suppresses duplicate logs within session using in-memory `Set`
+
+### Functions:
+- `logWithTime(...args)`
+- `getTimeStamp()`
 
 ---
 
-### 🎫 `token-headers.utils.js`
-- `setAccessTokenHeaders(res, token)`: 
-  - Sets `x-access-token` and a flag `x-token-refreshed` in headers
-  - Also exposes these headers to frontend via `Access-Control-Expose-Headers`
-- Gracefully exits if headers already sent
+## 📄 `token-headers.utils.js` — 📤 Attach Access Token Headers
+
+### ✅ Purpose:
+- Adds refreshed token and flags to HTTP headers (used in token refresh scenarios)
+
+### Function:
+- `setAccessTokenHeaders(res, accessToken)`
 
 ---
 
-## 🧠 **Design Principles & Patterns**
+## 📄 `user-validators.js` — 📋 User Field Validations
 
-| ✅ Principle / Pattern        | 💡 Where It Was Applied                     |
-|------------------------------|---------------------------------------------|
-| **SRP** (Single Responsibility Principle) | All utility files are dedicated to a single concern |
-| **Factory Pattern**          | `issue-token.utils.js`                      |
-| **Template Method Pattern**  | `auth-log-utils.js`                         |
-| **DRY**                      | Reused logic for cookie, token, timestamp, etc. |
-| **KISS** (Keep It Simple)    | Straightforward interfaces like `extractAccessToken()` |
-| **YAGNI** (You Aren’t Gonna Need It) | Avoids bloat; only core utilities included |
+### ✅ Purpose:
+Validates all user-specific fields:
+- Name
+- Email
+- UserID
+- Phone number
+- Password
+- Country code
+
+### 🧪 Each Validator Checks:
+- ❗ Correct length
+- ❗ Regex match
+- ❗ Throws structured error if invalid
+
+### Validators:
+- `isValidName(name, res)`
+- `isValidEmail(email, res)`
+- `isValidUserID(userID, res)`
+- `isValidFullPhoneNumber(phone, res)`
+- `isValidPassword(password, res)`
+- `isValidCountryCode(code, res)`
+- `isValidNumber(number, res)`
 
 ---
 
 ## 🎯 **Final Takeaway**
 
-The `utils/` folder is the **nervous system** of this authentication platform. It quietly powers **validation**, **token creation**, **cookie management**, **logging**, and **security** — without ever being directly exposed to the end-user.
+This `utils/` folder acts as the **silent backbone** of your entire backend. Whether it’s token issuance, field validation, device control, or auth logging — these utilities ensure:
 
-> **If this folder is strong, the whole system stands tall.**  
-> Built & documented by **Yatharth Kumar Saxena** 🧠  
-> Maintain it with love, and let logic thrive behind the scenes.
+- 🔁 Reusability
+- 🧱 Maintainability
+- ✅ Clean separation of concerns
+- ⛔ Centralized error handling
+
+> Utilities are where logic gets crystallized — clean, context-free, reusable.  
+> This folder ensures the controllers & services remain readable and focused.
+
