@@ -1,88 +1,142 @@
-# 🚦 `rate-limiters/` — API Throttling & Abuse Protection Layer
+# 🚦 `rate-limiters/` — Centralized API Rate Limiting Middleware
 
-> **I'm the README.md file of this folder, built to document the heartbeat of your request security mechanism.** 🛡️
+This folder implements a **robust rate limiting system** to control how frequently clients can hit your API.  
+Built using the **Factory Design Pattern**, the logic is divided into general and special-purpose middleware:
+
+- ✅ `userID + deviceID` → for **authenticated** APIs
+- ✅ `deviceID only` → for **unauthenticated** or **public** APIs
 
 ---
 
 ## 📖 **Introduction**
 
-In a production-grade authentication service, **security doesn’t stop at validation** — it extends to **how frequently** requests are made.
+Rate limiting is critical for:
 
-The `rate-limiters/` folder is your **first line of resilience** against brute-force attacks, spamming, and overload attempts. By throttling both **per-device** and **per-user-device** request frequencies, this layer ensures your backend stays protected, even during DDoS-level stress.
+- Preventing abuse and brute-force attacks
+- Throttling sensitive actions (like password change, account deactivation)
+- Protecting public endpoints from spamming or botting
 
-This system is fully **middleware-compatible**, **modular**, and built using the **Factory Design Pattern** — creating customizable rate limiters for every API class (sign-in, sign-out, activate, block, etc.)
-
----
-
-## 🧭 Table of Contents
-
-- 🗂️ [Folder Structure](#-folder-structure)
-- ⚙️ [Core Design & Factory Pattern](#-core-design--factory-pattern)
-- 🧠 [Design Principles & Patterns](#-design-principles--patterns)
-- 🎯 [Final Takeaway](#-final-takeaway)
+This system uses Prisma with `public.prisma` and `private.prisma` clients to track request metadata.
 
 ---
 
 ## 🗂️ **Folder Structure**
+This folder contains 3 files in total:
 
-> 📦 Total: **3 files**
-
-| 📄 File Name | 📋 Purpose Summary |
-|-------------|--------------------|
-| `create-rate-limiter-factory.js` | 🏭 Factory function to dynamically create custom rate limiters based on request context |
-| `special-api-rate-limiter.js`    | 🧬 Device-only rate limiter set — handles unauthenticated or pre-token flows |
-| `general-api.rate-limiter.js`    | 🧑‍💻 User + Device-based rate limiter set — for token-authenticated & sensitive APIs |
-
----
-
-## ⚙️ **Core Design & Factory Pattern**
-
-This layer uses a **Factory Design Pattern**, which allows you to:
-- Dynamically create a middleware limiter for each endpoint.
-- Inject configuration directly from `rate-limit.config.js`.
-- Reuse the same factory logic with different constraints (DRY Principle ✅).
-
-### 🏭 `createRateLimiter()`
-Used when both **`userID` and `deviceID`** are available — ideal for:
-- Authenticated requests (e.g., deactivate account, block/unblock, change password)
-
-🔐 Internally checks:
-- If rate limit exceeded for a (userID + deviceID) pair.
-- Adds `Retry-After`, `X-RateLimit-Remaining`, and `X-RateLimit-Reset` headers.
+| 📄 File Name                     | 🧠 Description                                                                 |
+|----------------------------------|-------------------------------------------------------------------------------|
+| `create-rate-limiter-factory.js` | 📦 Factory logic to create rate limiters based on user/device or device only |
+| `general-api.rate-limiter.js`    | 🔐 Rate limiters for access-token-protected APIs (userID + deviceID)         |
+| `special-api.rate-limiter.js`    | 📴 Rate limiters for public-facing APIs like signup/signin (deviceID only)    |
 
 ---
 
-### 🧬 `createDeviceBasedRateLimiter()`
-Used in early-stage or public APIs where **userID isn’t confirmed yet** — such as:
-- Sign-up
-- Sign-in
+## 📄 **File: create-rate-limiter-factory.js**
+
+### ✅ `createRateLimiter(maxRequests, timeWindowInMs)`
+Used in **authenticated** routes (where `userID` and `deviceID` are both available).
+
+- Ensures user is valid and device belongs to them.
+- Tracks `requestCount` and `lastUsedAt` from `public.prisma.device`.
+- If request count exceeds `maxRequests` within `timeWindowInMs`, user is blocked temporarily.
+- Headers like `X-RateLimit-Remaining`, `Retry-After` are returned.
+
+### ✅ `createDeviceBasedRateLimiter(maxRequests, timeWindowInMs)`
+Used in **unauthenticated** or **open** routes (like login or signup).
+
+- Only `deviceID` is tracked.
+- Uses `private.prisma.deviceRateLimit` table.
+- Manages fields: `attempts` and `lastAttemptAt`.
+- Helps avoid abuse before authentication happens.
+
+Both functions return an **Express middleware function**.
+
+---
+
+## 📄 **File: general-api.rate-limiter.js**
+
+Used for **access-token protected routes**, where `req.user.userID` and `req.deviceID` are both validated.
+
+Each route pulls its limit config from `rate-limit.config.js > perUserAndDevice`.
+
+### 🧪 Common APIs using this:
+- Sign Out
+- Change Password
+- Block/Unblock User/Device
+- Deactivate Account
+- View Devices or Auth Logs
+- Update User Profile
+- Admin User Detail Fetch
+
+### 📦 Sample Usage:
+```js
+const signOutRateLimiter = createRateLimiter(config.signout.maxRequests, config.signout.windowMs);
+const changePasswordRateLimiter = createRateLimiter(config.changePassword.maxRequests, config.changePassword.windowMs);
+```
+
+---
+
+## 📄 **File: special-api.rate-limiter.js**
+
+Used for **unauthenticated routes** or sensitive open routes, where only `deviceID` is tracked.
+
+These APIs usually do not have access tokens (or userIDs), so device-level tracking is enforced.
+
+### 🧪 Common APIs using this:
+- Sign Up
+- Sign In
 - Activate Account
-- Malformed Requests
+- Malformed/Wrong Request Protection (custom rule: 3 requests per 15s)
 
-Checks frequency **per deviceID** only. Ideal for unauthenticated paths.
+### 📦 Sample Usage:
+```js
+const signUpRateLimiter = createDeviceBasedRateLimiter(config.signup.maxRequests, config.signup.windowMs);
+const malformedAndWrongRequestRateLimiter = createDeviceBasedRateLimiter(3, 15_000);
+```
 
 ---
 
-## 🧠 **Design Principles & Patterns**
+## 🧠 **Design Summary**
 
-| ✅ Principle / Pattern          | 💡 Where Applied                                                                 |
-|--------------------------------|----------------------------------------------------------------------------------|
-| **SRP (Single Responsibility)** | Each rate limiter file serves either device-only or user-device-based routes.   |
-| **Factory Design Pattern**      | Dynamically creates rate-limiting middleware based on config                     |
-| **DRY (Don't Repeat Yourself)** | Core limiter logic abstracted into reusable factories                           |
-| **Fail Fast**                   | Early exit if rate exceeded — avoids controller calls                           |
-| **KISS (Keep It Simple, Stupid)**| Limiter middleware is lightweight, focused only on rate validation             |
-| **YAGNI**                       | Only generates limiter when explicitly requested; avoids over-engineering        |
-| **Scalable Configs**            | Centralized via `rate-limit.config.js`, ready for future tuning per endpoint    |
+| Component                        | Tracks By         | Applies On                  |
+|----------------------------------|-------------------|-----------------------------|
+| `createRateLimiter()`            | `userID + deviceID` | Authenticated APIs        |
+| `createDeviceBasedRateLimiter()` | `deviceID only`     | Unauthenticated/Public APIs|
+
+---
+
+## 🛡️ **Rate Limiting Tables Used**
+
+| 📚 Database        | 🗃️ Table             | 🧩 Fields Tracked                          |
+|--------------------|----------------------|--------------------------------------------|
+| `public.prisma`    | `device`             | `requestCount`, `lastUsedAt`               |
+| `private.prisma`   | `deviceRateLimit`    | `attempts`, `lastAttemptAt`                |
+
+---
+
+## 🧾 **Rate Limiter Headers Set**
+
+Each limiter sets the following headers in the response:
+
+| Header                  | Description                                         |
+|--------------------------|-----------------------------------------------------|
+| `X-RateLimit-Limit`     | Total allowed requests in the current time window   |
+| `X-RateLimit-Remaining` | Remaining requests before hitting the limit         |
+| `X-RateLimit-Reset`     | Time in seconds until the window resets             |
+| `Retry-After`           | Sent **only** when user has exceeded the request cap|
 
 ---
 
 ## 🎯 **Final Takeaway**
 
-The `rate-limiters/` folder ensures that **frequency abuse never compromises logic, security, or performance**.
+This `rate-limiters/` folder modularizes and scales your security layer through:
 
-Every route is equipped with a precision limiter that respects both the **user context** and **device fingerprint** — giving your system **granular control and resilience** against excessive load or malicious behavior.
+- 🔒 Smart user-device-based protection for authenticated routes
+- 🔐 Device-only throttling for sensitive open APIs
+- 🏭 Factory Pattern for DRY, reusable middleware
+- 💾 Prisma-based persistent request tracking
 
-> Engineered with foresight by **Yatharth Kumar Saxena**  
-> Let this folder act as the **shield against overload** and **the gatekeeper of system stability**. 🚦
+> This isn’t just rate-limiting — it’s your **first defense layer**  
+> against bots, brute-force attacks, and abusive API usage.
 
+---
